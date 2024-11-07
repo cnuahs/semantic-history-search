@@ -10,7 +10,8 @@
   },
   "files": [
     "src/main.ts",
-    "src/background.ts"
+    "src/background.ts",
+    "src/content.ts"
   ],
   "include": [
     "src/**/*.d.ts"

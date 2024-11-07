@@ -18,6 +18,7 @@
       "storage",
       "alarms"
    ],
+   "host_permissions": ["https://*/*", "http://*/*"],
    "background": {
       "service_worker": "background.js",
       "type": "module"

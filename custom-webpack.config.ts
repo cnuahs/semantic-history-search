@@ -3,7 +3,8 @@ import type { Configuration } from 'webpack';
 
 export default {
     entry: { 
-        background: 'src/background.ts'
+        background: 'src/background.ts',
+        content: 'src/content.ts'
     },
     optimization: {
         runtimeChunk: false
