@@ -1,0 +1,29 @@
+<div class="px-2 py-2 flex-col">
+    <div class="w-full text-lg text-slate-400 uppercase flex">
+        <span class="grow">Results</span>
+        <span>{{results.length}}</span>
+    </div>
+    <div class="w-full space-y-2 flex flex-col">
+        <!-- list each result card -->
+        <!-- @if (count == 0) {
+            <div class="w-full p-4 bg-white rounded-md">No results for current search text.</div>
+        } @else { -->
+            @for (item of results | slice:0:results.length; track item.id) {
+                <!-- <a href="{{item.url}}" target="_blank" class="w-full p-4 bg-white rounded-md flex-col">
+                    <div class="text-cyan-500">{{item.title}}</div>
+                    <div class="text-sm text-slate-400">{{item.url}}</div>
+                    <div>{{item.summary}}</div>
+                </a> -->
+                <div class="w-full p-1 bg-white rounded-md flex-col">
+                    <div class="text-lg"><a href="{{item.url}}" target="_blank">{{item.title}}</a></div>
+                    <div class="text-sm text-slate-400">{{item.url}}</div>
+                    <div>{{item.summary}}</div>
+                    <div class="mt-1 italic text-xs text-slate-300 text-right">Visited {{item.date | date: 'medium'}}</div>
+                </div>                   
+            }
+            @empty {
+                <div class="w-full p-4 bg-white text-center rounded-md">No results for current search text.</div>
+            }
+        <!-- } -->
+    </div>
+</div>
