@@ -9,6 +9,9 @@ if (isProbablyReaderable(document)) {
     article = new Readability(dom).parse();
 }
 
+// FIXME: do we want to discart the markup? Couldn't we use that for splitting the text?
+// FIXME: how do we handle PDFs?
+
 const info = {
     title: document.title,
     href: document.location.href,
