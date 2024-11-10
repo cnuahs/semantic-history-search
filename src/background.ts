@@ -20,7 +20,8 @@ env.backends.onnx.wasm.numThreads = 1;
 
 import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/hf_transformers";
 const modl = new HuggingFaceTransformersEmbeddings({
-  model: "Xenova/all-MiniLM-L6-v2",
+  // batchSize: 128,
+  model: "Xenova/all-MiniLM-L6-v2"
 });
 
 // import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
@@ -72,6 +73,7 @@ async function splitNaive(text: string, N: number[] = [0]): Promise<Chunk[]> {
 }
 
 import { Embeddings } from "@langchain/core/embeddings";
+import { chunkArray } from "@langchain/core/utils/chunk_array";
 
 async function splitSemantic(text: string, N: number = 1, model: Embeddings): Promise<Chunk[]> {
   // crude "semantic" splitting... split by sentence similarity
@@ -138,10 +140,32 @@ async function splitSemantic(text: string, N: number = 1, model: Embeddings): Pr
   return Promise.resolve(chunks);
 }
 
+function bin2hex(buf: ArrayBuffer) {
+  const hex = Array.from(new Uint8Array(buf))
+    .map((byte) => byte.toString(16).padStart(2,'0')).join('');
+  return hex;
+}
+
+async function sha256(str: string) {
+  const utf8 = new TextEncoder().encode(str);
+  return bin2hex(await crypto.subtle.digest('SHA-256', utf8));
+}
+
+// import { PineconeStore } from "@langchain/pinecone";
+import { Pinecone as PineconeClient, Index } from "@pinecone-database/pinecone";
+
+const pc = new PineconeClient({ apiKey: "API-KEY" });
+
+const namespace = ""; // default: empty namespace
+const pcIndex = pc.index("vhs-ext").namespace(namespace); // FIXME: .Index vs .index?
+// const pcStore = await PineconeStore.fromExistingIndex(modl, { pineconeIndex: pcIndex, maxConcurrency: 5 });
+
+// import { Document } from "@langchain/core/documents";
+
 // register a content script to run on all pages
 chrome.scripting.registerContentScripts([{
     id : "vhs-content-script",
-    matches : [ "https://towardsdatascience.com/*" ], //[ "https://*/*", "http://*/*" ],
+    matches : [ "https://towardsdatascience.com/*", "https://medium.com/*" ], //[ "https://*/*", "http://*/*" ],
     runAt : "document_idle",
     js : [ "content.js" ],
   }])
@@ -150,36 +174,119 @@ chrome.scripting.registerContentScripts([{
 
 // listen for messages from the payload.js script
 chrome.runtime.onMessage.addListener(function (message) {
-  console.log("worker: Received message (%s)", message.host);
+  console.log("Received message (%s)", message.host);
+  
+  Promise.all([ sha256(message.href), splitNaive(message.text,[1]) ])
+  .then(async (results) => {
+    let [hash, chunks] = results;
 
-  splitSemantic(message.text,1,modl)
-  .then(async (chunks) => {
-    console.group("Chunk statistics");
+    console.log("SHA256: %s", hash);
+
+    console.groupCollapsed("Chunk statistics");
     console.log("Found", chunks.length, "chunks");
   
     const n = chunks.map(chunk => chunk.text.split(/\s/).length); // count words in each chunk
     console.log("Chunk size (words): %i, %i, %i (min, mean, max)", Math.min(...n), Math.ceil(n.reduce((sum, a) => sum + a, 0)/n.length), Math.max(...n));
     console.groupEnd();
 
-    // generate embeddings...
-    let embeddings: number[][] = [];
+    // search storage.sync for the hash
+    
+    // if found, update the metadata (timestamp etc.?) and return
+
+    const M = chunks.length; // number of chunks to embed and upsert (useful for testing)
+
+    // if not found, generate embeddings...
+    // let embeddings: number[][] = [];
     if (chunks.map(chunk => chunk.embedding.length > 0).indexOf(true) === -1) {
       console.groupCollapsed("Embedding", chunks.length, "chunks");
       console.time("Elapsed");
-      embeddings = await modl.embedDocuments(chunks.map(item => item.text));
+      
+      // const embeddings: number[][] = await modl.embedDocuments(chunks.slice(0,M).map(item => item.text));
+      // 
+      // chunks.slice(0,M).forEach((chunk, index) => {
+      //   chunk.embedding = embeddings[index]; //.map((item,index) => item*(index === 0 ? 1 : 0));
+      // });
+
+      // reducing the embedding model .batchSize doesn't seem to ease memory requirements, because
+      // the HuggingFaceTransformersEmbeddings class dispatches all batches concurrently.
+      //
+      // here we perform our own "batching", await'ing each batch of embeddings before moving on to the next.
+      const batches = chunkArray(chunks.slice(0,M), modl.batchSize > 256 ? 256 : modl.batchSize);
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const embeddings = await modl.embedDocuments(batch.map(item => item.text));
+        batch.forEach((chunk, index) => {
+          chunk.embedding = embeddings[index];
+        });
+      }
+
       console.timeEnd("Elapsed");
       console.groupEnd();
-    } else {
-      embeddings = chunks.map(chunk => chunk.embedding);
     }
 
-    console.log(embeddings[0].length, "dimensional embeddings");
-    console.log(embeddings[0].slice(0,5), "...");
-    
-    // TODO: store embeddings in pinecone vector db
+    // generate chunk ids, i.e., hash#index
+    const ids: string[] = chunks.slice(0,M).map(chunk => `${hash}#${chunk.index}`);
 
+    // search pinecone index for ids matching the hash prefix, i.e., hash#[index]
+    let kill: string[] = await listIndex(pcIndex,`${hash}#`);
+    kill = kill.filter(id => !ids.includes(id));
+    if (kill.length > 0) {
+      console.groupCollapsed("Removing", kill.length, "chunks");
+      console.time("Elapsed");
+      await removeFromIndex(pcIndex, kill);
+      console.timeEnd("Elapsed");
+      console.groupEnd();
+    }
+
+    // insert/update the embeddings and return
+    
+    // const docs = chunks.map(chunk => new Document({ pageContent: chunk.text, metadata: { source: message.host, index: chunk.index } }));
+    console.groupCollapsed("Adding/updating", chunks.length, "chunks");
+    console.time("Elapsed");
+    // await pcStore.addDocuments(docs);
+    await addToIndex(pcIndex, chunks.slice(0,M), ids);
+    console.timeEnd("Elapsed");
+    console.groupEnd();
   });
 });
+
+async function removeFromIndex(index: Index, ids: string[]) {
+  if (ids.length === 0) {
+    // remove *all* records from the index!!
+    let records = await index.listPaginated();
+
+    ids = records.vectors?.map(item => item.id).filter((id): id is string => id !== undefined) || [];
+    while (records.pagination) {
+      records = await index.listPaginated({ paginationToken: records.pagination.next });
+      ids.push(...(records.vectors?.map(item => item.id).filter((id): id is string => id !== undefined) || []));
+    }
+  }
+
+  await index.deleteMany(ids || []);
+}
+
+async function addToIndex(index: Index, chunks: Chunk[], ids: string[]) {
+  const vectors = chunks.map((chunk, index) => {
+    return {
+      id: ids[index],
+      values: chunk.embedding
+    };
+  });
+
+  await index.upsert(vectors);
+}
+
+async function listIndex(index: Index, id: string) {
+  let records = await index.listPaginated({ prefix: id });
+
+  let results = records.vectors || [];
+  while (records.pagination) {
+    records = await index.listPaginated({ paginationToken: records.pagination.next });
+    results.push(...(records.vectors || []));
+  }  
+
+  return results.map(item => item.id).filter((id): id is string => id !== undefined) || [];
+}
 
 // ------------------------------
 
