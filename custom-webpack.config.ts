@@ -12,7 +12,7 @@ export default {
     node: {
         global: true // Fix for "Uncaught ReferenceError: global is not defined" when importing Pinecone
     },
-    // experiments: {
-    //     topLevelAwait: true // Fix for "Module parse failed: The top-level-await experiment is not enabled" when instantiating PineconeStore
-    // }
+    experiments: {
+        topLevelAwait: true // Fix for "Module parse failed: The top-level-await experiment is not enabled" when instantiating PineconeStore
+    }
 } as Configuration;
