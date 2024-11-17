@@ -1,21 +1,16 @@
-import { Component } from '@angular/core';
+import { Component, Input, ChangeDetectionStrategy} from '@angular/core';
 import { SlicePipe, DatePipe } from '@angular/common';
-
-import { SearchService } from '../search.service';
 
 @Component({
   selector: 'app-results',
   standalone: true,
   imports: [SlicePipe, DatePipe],
   templateUrl: './results.component.html',
-  styleUrl: './results.component.css'
+  styleUrl: './results.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ResultsComponent {
-  count: number = 4;
 
-  results: any[];
+  @Input() results: any[] = []; // TODO: change any[] to the Bookmark interface...?
 
-  constructor(private searchService: SearchService) {
-    this.results = this.searchService.query('*');
-   }
 }

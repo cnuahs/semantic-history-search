@@ -2,7 +2,7 @@
 
 // import { Bookmarks } from "./bookmarks";
 
-import { store, search, get, remove } from "./retriever";
+import { add, del, get, search } from "./retriever";
 
 function bin2hex(buf: ArrayBuffer) {
   const hex = Array.from(new Uint8Array(buf))
@@ -26,57 +26,63 @@ chrome.scripting.registerContentScripts([{
   .catch((err) => console.warn("Registering content script failed:", err));
 
 // listen for messages from the payload.js script
-chrome.runtime.onMessage.addListener(function (message) {
-  console.log("Received message (%s)", message.host);
+chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
+  console.log("Received message from content script (%s)", message.type);
 
-  // remove("");
-  // console.log('Clean!');
+  switch (message.type) {
+    case "add-bookmark":
+      const info = message.payload;
+      console.log("Host:", info.host);
 
-  // calculate hash of .href to use as the bookmark id
-  sha256(message.href)
-  .then(async (hash) => {
-    console.log("SHA256: %s", hash);
+      // del(""); console.log("Index is clear!");
 
-    // search for existing bookmark
-    let bmk = (await get([hash])).filter((bmk) => bmk !== null);
+      // calculate hash of .href to use as the bookmark id
+      sha256(info.href)
+      .then(async (hash) => {
+        console.log("SHA256: %s", hash);
 
-    if (bmk.length === 0) {
-      console.groupCollapsed("Adding new bookmark:", message.href);
+        // search for existing bookmark
+        let bmk = (await get([hash])).filter((bmk) => bmk !== null);
 
-      await store( hash, message ); // add to dStore, embed and upsert to vStore
+        if (bmk.length === 0) {
+          console.log("New bookmark:", info.href);
 
-      console.groupEnd();
-    } else {
-      console.log("Bookmark already exists:", message.href);
-    }
+          add(hash, info); // add the bookmark, upsert embeddings etc.
+        } else {
+          console.log("Found bookmark:", info.href);
 
-    // console.log("Ok");
+          // TODO: update the metadata (timestamp etc.)?
+        }
+      });
 
-    // console.dir(dStore);
+      break;
 
-    // test get() based on bookmark id
-    bmk = await get([hash]); // should *definitely* be in the store now
-    console.dir(bmk);
+    case "del-bookmark":
+      break;
 
-    // test search() over embeddings
-    bmk = await search("a page about vizualising travel stories");
-    console.dir(bmk);
+    case "search":
+      const query = message.payload;
 
-    bmk = await search("javascript/typescript promises");
-    console.dir(bmk);
+      if (query === "") {
+        console.warn("Empty query string.");
+        sendResponse({ type: "result", payload: [] }); // FIXME: return an empty array???
+        break;
+      }
 
-    bmk = await search("document embedding for RAG");
-    console.dir(bmk);
+      console.log("Searching for:", query);
 
-    // test removal based on bookmark id
-    // remove(hash);
+      // const bmk: any[] = []; //await 
+      search(query).then((bmk) => {
+        console.dir(bmk);
 
+        sendResponse({ type: "result", payload: bmk });
+      });
+      break;
 
-    // 1. search storage.sync for the hash
-    // 2.1 found --> update the metadata (timestamp etc.?) and return
-    // 2.2 not found -> add the bookmark, upsert embeddings and return
-    
-  });
+    default:
+      console.warn("Unknown message type:", message.type);
+  };
+  return true; // keep the channel open?
 });
 
 

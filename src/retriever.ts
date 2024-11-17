@@ -399,7 +399,7 @@ const retriever = new ParentDocumentRetriever({
   // Optional `k` parameter to search for more child documents in VectorStore.
   // Note that this does not exactly correspond to the number of final (parent) documents
   // retrieved, as multiple child documents can point to the same parent.
-  childK: 20,
+  childK: 500,
   // Optional `k` parameter to limit number of final, parent documents returned from this
   // retriever and sent to LLM. This is an upper-bound, and the final count may be lower than this.
   parentK: 5,
@@ -410,21 +410,15 @@ const retriever = new ParentDocumentRetriever({
  * public interface
  */
 
-// similarity search on embeddings
-export async function search(query: string): Promise<Bookmark[]> {
-  const results = await retriever.invoke(query);
-  return results.map(doc => Bookmark.fromDocument(doc));
-}
-
-// store bookmark
-export async function store(id: string, fields: any): Promise<void> {
-  // create bookmark
-  const bmk = new Bookmark( { id: id, ...fields } ); //{id: hash, ...message} ); // Bookmark to store
+// add bookmark
+export async function add(id: string, fields: any): Promise<void> {
+  // create Bookmark to store
+  const bmk = new Bookmark( { id: id, ...fields } );
     
   // add to dStore
   await storeBookmark({[id]: bmk});
   
-  // create document for embedding
+  // create Document for embedding
   const doc = new Document({ id: id, pageContent: fields.text });
 
   // add to retriever
@@ -434,17 +428,8 @@ export async function store(id: string, fields: any): Promise<void> {
   });
 }
 
-// search for bookmark id
-export async function get(id: string[]): Promise<Bookmark[]> {
-  console.log("Get()[ting]", id);
-  const results = await dStore.mget(id);
-  return results.map((bmk) => bmk ? JSON.parse(new TextDecoder().decode(bmk)) : null);
-}
-
-// remove bookmark (based on bookmark id)
-export async function remove(id: string): Promise<void> {
-  console.log("Remove()[ing]", id);
-
+// delete bookmark by id
+export async function del(id: string): Promise<void> {
   // remove from vStore
   if (id.length === 0) {
     // remove *all* records from the index!!
@@ -474,7 +459,17 @@ export async function remove(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
+// get bookmarks by id
+export async function get(id: string[]): Promise<Bookmark[]> {
+  const results = await dStore.mget(id);
+  return results.map((bmk) => bmk ? JSON.parse(new TextDecoder().decode(bmk)) : null);
+}
 
+// similarity search on bookmark embeddings
+export async function search(query: string): Promise<Bookmark[]> {
+  const results = await retriever.invoke(query);
+  return Promise.resolve(results.map(doc => Bookmark.fromDocument(doc)));
+}
 
 
 

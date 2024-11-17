@@ -9,16 +9,19 @@ if (isProbablyReaderable(document)) {
     article = new Readability(dom).parse();
 }
 
-// FIXME: do we want to discart the markup? Couldn't we use that for splitting the text?
+// FIXME: do we want to discard the markup? Couldn't we use that for splitting the text?
 // FIXME: how do we handle PDFs?
 
-const info = {
-    title: document.title,
-    href: document.location.href,
-    host: document.location.host,
-    //
-    excerpt: article?.excerpt,
-    text: article?.textContent
+const msg = {
+    type: 'add-bookmark',
+    payload: {
+        title: document.title,
+        href: document.location.href,
+        host: document.location.host,
+        //
+        excerpt: article?.excerpt,
+        text: article?.textContent
+    }
 };
 
-chrome.runtime.sendMessage(info);
+chrome.runtime.sendMessage(msg);

@@ -1,25 +1,38 @@
 import { Injectable } from '@angular/core';
 
+import { Bookmark } from '../retriever';
+
 @Injectable({
   providedIn: 'root'
 })
 export class SearchService {
-  private results = [
-      { title: 'Result 1', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 1 },
-      { title: 'Result 2', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 2 },
-      { title: 'Result 3', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 3 },
-      { title: 'Result 4', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 4 },
-      { title: 'Result 5', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 5 },
-      { title: 'Result 6', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 6 },
-      { title: 'Result 7', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 7 },
-      { title: 'Result 8', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 8 },
-      { title: 'Result 9', url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 9 },
-      { title: 'Result 10',url: 'https://www.no-domain.com/', summary: '', date: new Date(), id: 10 }
-    ];
 
-  query(query: string): any[] {
-    let n = Math.floor(Math.random() * this.results.length);
-    return this.results.slice(0,n);
+  async search(query: string): Promise<any[]> {
+    // console.log('SearchService: Searching for:', query);
+
+    // note: the search is performed by the service worker not here
+    
+    const msg = { type: "search", payload: query };
+    
+    return new Promise((resolve, _reject) => {
+      // send msg to the service worker
+      chrome.runtime.sendMessage(msg)
+      .then((response) => {
+        // parse response from the service worker
+        // console.log('SearchService: Recieved response:', response);
+        const results: Bookmark[] = response.payload;
+        resolve(results
+        .map((result: any) => result.metadata ? {
+          title: result.metadata["title"],
+          url: result.metadata["href"],
+          summary: result.pageContent,
+          date: new Date(),
+          id: result.id
+        } : null)
+        .filter((result: any): result is { title: string; url: string; summary: string; date: Date; id: string } => result !== null));
+      });
+    });    
+
   }
 
   constructor() { }
