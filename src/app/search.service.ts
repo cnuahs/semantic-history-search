@@ -7,6 +7,17 @@ import { Bookmark } from '../retriever';
 })
 export class SearchService {
 
+  del(id: string): void {
+    // console.log('SearchService: Deleting bookmark:', id);
+
+    // note: the deletion is performed by the service worker not here
+
+    const msg = { type: "del-bookmark", payload: id };
+
+    // send msg to the service worker
+    chrome.runtime.sendMessage(msg);
+  }
+
   async search(query: string): Promise<any[]> {
     // console.log('SearchService: Searching for:', query);
 

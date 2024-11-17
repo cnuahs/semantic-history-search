@@ -58,6 +58,11 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       break;
 
     case "del-bookmark":
+      const hash = message.payload;
+
+      console.log("Deleting bookmark:", hash);
+      del(hash);
+
       break;
 
     case "search":
