@@ -1,0 +1,77 @@
+{
+    "$id": "Settings",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "pinecone-index": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "Pinecone Index"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "The Pinecone index to use for vector storage and search."
+                },
+                "value": {
+                    "type": "string",
+                    "default": "vhs-ext"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
+        },
+        "pinecone-namespace": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "Pinecone Namespace"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "The Pinecone namespace to use for vector storage and search."
+                },
+                "value": {
+                    "type": "string",
+                    "default": ""
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
+        },
+        "pinecone-api-key": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "Pinecone API Key"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "The Pinecone API key to use for vector storage and search."
+                },
+                "value": {
+                    "type": "string",
+                    "default": ""
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
+        }
+    }
+}

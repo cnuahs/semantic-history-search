@@ -15,9 +15,32 @@
             </a>
         </div>
     </div>
-    <div class="w-full justify-items-center bg-slate-100 grow">
-        <div class="text-slate-400 py-1 uppercase">
-            <a routerLink="/" routerLinkActive="active" ariaCurrentWhenActive="page">Home</a> | Settings
+
+    @if (settings !== null) {
+        <!-- <div class="absolute z-10 min-w-full px-12 flex flex-col top-4"> -->
+        <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
+
+            <ul>
+                @for (setting of settings ; track setting.label) {
+                    <li class="flex flex-col my-2">
+                        <p>{{setting.label}}</p>
+                        <span class="font-light text-gray-500 text-sm">{{setting.description}}</span>
+                        <input class="p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm" type="text" autocomplete="off" [(ngModel)]="setting.value" name="{{setting.value}}" ngDefaultControl placeholder="{{setting.label}}">
+                    </li>
+                }
+            </ul>
+            <!-- <div class="flex flex-col justify-end grow"> -->
+            <div class="flex flex-row gap-2 place-self-end justify-end">
+                <input type="button" class="px-4 py-2 bg-cyan-500 text-white rounded-md" value="Apply" (click)="onClick(true)">
+                <input type="button" class="px-4 py-2 bg-slate-200 text-slate-500 rounded-md" value="Cancel" (click)="onClick(false)">
+            </div>
+            <!-- </div> -->
         </div>
-    </div>   
+    } 
+    @else {
+        <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
+            <input #passphrase type="password" class="p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm" [(ngModel)]="passphrase" name="passphrase" ngDefaultControl placeholder="Passphrase">
+            <input type="button" class="px-4 py-2 bg-cyan-500 text-white rounded-md" value="Unlock" (click)="unlock(passphrase.value)">
+        </div>
+    }
 </div>

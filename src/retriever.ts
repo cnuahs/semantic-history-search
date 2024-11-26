@@ -287,8 +287,12 @@ export class PineconeStoreNoContent
 
 import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 
-import { PINECONE_API_KEY } from "./secrets";
-const pc = new PineconeClient({ apiKey: PINECONE_API_KEY });
+// import { PINECONE_API_KEY } from "./secrets";
+import settings from "./settings"
+import { Setting } from "./settings";
+
+const apiKey = await settings.get("pinecone-api-key") as Setting;
+const pc = new PineconeClient({ apiKey: apiKey.value });
 
 const namespace = ""; // default: empty namespace
 const index = pc.index("vhs-ext").namespace(namespace); // FIXME: .Index vs .index?
@@ -471,7 +475,7 @@ export async function search(query: string): Promise<Bookmark[]> {
   return Promise.resolve(results.map(doc => Bookmark.fromDocument(doc)));
 }
 
-
+export default { add, del, get, search };
 
 
 
