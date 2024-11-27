@@ -80,13 +80,17 @@ export async function get(...args: any[]): Promise<Setting | Setting[]> {
     });
 }
 
-export function set(...args: any[]): void {
+export function set(...args: any[]): Promise<void> {
+    return new Promise<void>(async (resolve, reject) => {
+
     if (arguments.length === 0 || args[0] === undefined) {
-        return;
+        // return;
+        reject(new Error("No arguments passed to set()."));
     }
     if (arguments.length > 2) {
         // too many arguments passed
-        return;
+        // return;
+        reject(new Error(`Too many arguments to set(). Expected 1 or 2 arguments but received ${arguments.length}.`));
     }
     if (arguments.length === 1) {
         // only one argument passed
@@ -95,10 +99,12 @@ export function set(...args: any[]): void {
             // set all key/value pairs from this object
             for (let o of args[0]) {
                 // set the value for o.name
-                set(o.name, o.value);
+                await set(o.name, o.value);
             }
+            resolve();
         } else {
             // unsupported arguments passed
+            reject(new Error("Unsupported argument passed to set()."));
         }
     } else {
         // two arguments passed
@@ -128,17 +134,20 @@ export function set(...args: any[]): void {
                     chrome.storage.sync.set(syncCache, () => {
                         console.log("Settings saved to storage.sync:", syncCache);
                     });
+                    resolve();
                 });
             
             } else {
                 // .set(key)
                 // retrieve the value for key?
+                reject(new Error("No value passed to set()."));
             }
         } else {
             // unsupported arguments passed
+            reject(new Error("Unsupported arguments passed to set()."));
         }
     }
-
+    });
     // FIXME: better to raise an error than to fail silently...?
 }
 
