@@ -4,10 +4,10 @@
 // listen for changes to settings that affect the retriever
 chrome.storage.onChanged.addListener((changes, namespace) => {
   for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-    console.log(
-      `Storage key "${key}" in namespace "${namespace}" changed.`,
-      `Old value was "${oldValue}", new value is "${newValue}".`
-    );
+    // console.log(
+    //   `Storage key "${key}" in namespace "${namespace}" changed.`,
+    //   `Old value was "${oldValue}", new value is "${newValue}".`
+    // );
 
     if (namespace === "sync" && key === "settings") {
       setup(newValue)
@@ -22,15 +22,19 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
       });
     }
 
-    if (namespace === "local" && key === "bookmarks") {
-      // update the local cache?
-      localCache.bookmarks = newValue;
-      console.log("Updated local cache with bookmarks.", localCache);
-    }
+    // handy for debugging...
+    // if (namespace === "local" && key === "bookmarks") {
+    //   // update the local cache?
+    //   localCache.bookmarks = newValue;
+    //   console.log("Updated local cache with bookmarks.", localCache);
+    // }
   }
 });
 
-const localCache: { bookmarks: Bookmark[] } = { bookmarks: [] };
+// const localCache: { bookmarks: LocalStore | null } = { bookmarks: null };
+ // wtf, can only serialise/resurect serializable objects in the langchain or
+// lancgain-core namespaces... as a workaround, for now just store the bookmarks.
+const localCache: { bookmarks: Record<string, Bookmark> } = { bookmarks: {} };
 const initLocalCache = chrome.storage.local.get().then((items) => {
     // copy all items to localCache
     Object.assign(localCache, items);
@@ -327,11 +331,75 @@ import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
  * "document" store... actually, where we'll store bookmarks
  */
 
-import { InMemoryStore } from "@langchain/core/stores"
+// import { InMemoryStore } from "@langchain/core/stores"
+import { BaseStore } from "@langchain/core/stores"
 
-const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
+// wtf? ParentDocumentRetriever currenly *only* supports document stores accepting Uint8Arrays...!?
+
+// In-memory store using a dictionary, backed by chrome.storage.local.
+export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
+  override lc_namespace = [ ".", "retriever" ];
+  override lc_serializable = true;
+
+  store: Record<string, Bookmark> = {}; // serializable?
+
+  // add .store to the list of attributes to be serialised
+  override get lc_attributes(): string[] {
+    return [ "store" ];
+  }
+
+  // note: cannot seem to serialise/resurect derived classes properly when saving to
+  //       chrome.storage.local. it seems like we can currently (2024-11-28) only serialise/resurect
+  //       classes in the langchain or langchain-core namespaces... for now, we explicitly save
+  //       .store after any changes in .mset() and .mdelete().
+
+  constructor( store?: Record<string, Bookmark> ) {
+    super( ...arguments );
+    this.lc_serializable = true;
+    this.store = store ?? {};
+  }
+
+  override async mset(items: [string, Uint8Array][]): Promise<void> {
+    for (const [key, value] of items) {
+      // decode Uint8Array --> Bookmark to store
+      this.store[key] = Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(value)));
+    }
+
+    // save to chrome.storage.local...
+    return chrome.storage.local.set({ bookmarks: this.store }); // FIXME: Object.values()?
+  }
+
+  override async mget(keys: string[]): Promise<(Uint8Array | undefined)[]> {
+    return keys.map((key) => {
+      const value = this.store[key];
+      // encode Bookmark --> Uint8Array to return
+      return value ? new TextEncoder().encode(JSON.stringify(value)) : undefined;
+    });
+  }
+
+  override async mdelete(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      delete this.store[key];
+    }
+
+    // save to chrome.storage.local...
+    return chrome.storage.local.set({ bookmarks: this.store }); // FIXME: Object.values()?
+  }
+
+  override async *yieldKeys(prefix? : string | undefined): AsyncGenerator<string> {
+    for (const key of Object.keys(this.store)) {
+      if (prefix === undefined || key.startsWith(prefix)) {
+        yield key;
+      }
+    }
+  }
+}
+
+// const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
+const dStore = new InMemoryLocalStore({}); // empty store
 initLocalCache.then(() => {
   console.log("Loaded local cache:", localCache);
+  dStore.store = localCache.bookmarks as Record<string, Bookmark>;
 });
 
 /*
@@ -407,32 +475,8 @@ async function addBookmark( doc: Record<string, Document> ) {
   // console.dir(docs);
 
   await dStore.mset(docs);
-
-  // // save to storage.local...
-  // const ids = [];
-  // for await (const id of dStore.yieldKeys()) {
-  //   ids.push(id);
-  // }
-  // dStore.mget(ids)
-  // .then((results) => {
-  //   const docs: Bookmark[] = results
-  //     .filter((doc): doc is Uint8Array => doc !== undefined)
-  //     .map((doc) => Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(doc))));
-  //   localCache.bookmarks = docs;
-  //   return chrome.storage.local.set(localCache);
-  // })
-  // .catch((err) => {
-  //   console.error("Failed to save bookmarks to local storage:", err);
-  // });
-
 }
 
-// async function getBookmark( id: string | string[] | null ) {
-//   id = !id ? dStore.yieldKeys() : Array.isArray(id) ? id : [id];
-
-//   const results = await dStore.mget(id);
-//   return results.map((bmk) => bmk ? JSON.parse(new TextDecoder().decode(bmk)) : null);
-// }
 
 /*
  * Retriever...
@@ -471,13 +515,11 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
 
     // document store
     // const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
-    initLocalCache.then(() => {
-      const bookmarks = localCache.bookmarks;
-      if (bookmarks.length > 0) {
-        const jnk = Object.fromEntries(bookmarks.map((bmk) => [bmk.id, bmk]));
-        addBookmark(jnk);
-      }
-    });
+    // const dStore = new InmemoryLocalStore();
+    // initLocalCache.then(() => {
+    //   console.log("Loaded local cache:", localCache);
+    //   dStore.store = localCache.bookmarks as Record<string, Bookmark>;
+    // });
 
     Promise.all([vStore])
     .then((values) => {
