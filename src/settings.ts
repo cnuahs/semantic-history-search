@@ -12,8 +12,8 @@ export type Setting = {
 
 // private state
 const _defaults = {
-    // "embedding-model": {
-    // },
+    "embedding-model": {
+    },
     "pinecone-index": {
     },
     "pinecone-namespace": {

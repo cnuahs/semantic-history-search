@@ -501,7 +501,7 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
     // }
     const model = new HuggingFaceTransformersEmbeddingsSmlMem({
       // batchSize: 128,
-      model: "Xenova/all-MiniLM-L6-v2" // settings["embedding-model"].value
+      model: settings["embedding-model"].value // "Xenova/all-MiniLM-L6-v2"
     });
 
     // vector store 

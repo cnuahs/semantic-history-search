@@ -4,6 +4,29 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
+        "embedding-model": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "Embedding Model"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "The embedding model to use."
+                },
+                "value": {
+                    "type": "string",
+                    "default": "Xenova/all-MiniLM-L6-v2"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
+        },
         "pinecone-index": {
             "type": "object",
             "additionalProperties": false,
