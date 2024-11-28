@@ -25,22 +25,35 @@ export class SearchService {
     
     const msg = { type: "search", payload: query };
     
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve, reject) => {
       // send msg to the service worker
       chrome.runtime.sendMessage(msg)
       .then((response) => {
-        // parse response from the service worker
-        // console.log('SearchService: Recieved response:', response);
-        const results: Bookmark[] = response.payload;
-        resolve(results
-        .map((result: any) => result.metadata ? {
-          title: result.metadata["title"],
-          url: result.metadata["href"],
-          summary: result.pageContent,
-          date: new Date(),
-          id: result.id
-        } : null)
-        .filter((result: any): result is { title: string; url: string; summary: string; date: Date; id: string } => result !== null));
+        switch (response.type) {
+          case "result":
+            // parse response from the service worker
+            // console.log('SearchService: Recieved response:', response);
+            const results: Bookmark[] = response.payload;
+            resolve(results
+            .map((result: any) => result.metadata ? {
+              title: result.metadata["title"],
+              url: result.metadata["href"],
+              summary: result.pageContent,
+              date: new Date(),
+              id: result.id
+            } : null)
+            .filter((result: any): result is { title: string; url: string; summary: string; date: Date; id: string } => result !== null));
+
+            break;
+          case "error":
+            reject(response.payload as Error); // pass error down the chain...?
+
+            break;
+          default:
+            reject(new Error('Unexpected response from service worker.'));
+
+            break;
+        }
       });
     });    
 

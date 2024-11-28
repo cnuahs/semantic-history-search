@@ -23,8 +23,13 @@ export class HomeComponent {
 
   handleSearch() {
     // perform the search via the search service
-    this.searchService.search(this.query).then((results) => {
+    this.searchService.search(this.query)
+    .then((results) => {
       this.results = results;
+    })
+    .catch((err) => {
+      console.error('HomeComponent.handleSearch()', err);
+      // FIXME: display errors/warning as overlays on the popup
     });
   }
 }

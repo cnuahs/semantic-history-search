@@ -2,7 +2,7 @@
 
 // import { Bookmarks } from "./bookmarks";
 
-import { add, del, get, search } from "./retriever";
+import retriever from "./retriever";
 
 function bin2hex(buf: ArrayBuffer) {
   const hex = Array.from(new Uint8Array(buf))
@@ -42,12 +42,12 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         console.log("SHA256: %s", hash);
 
         // search for existing bookmark
-        let bmk = (await get([hash])).filter((bmk) => bmk !== null);
+        let bmk = (await retriever.get([hash])).filter((bmk) => bmk !== null);
 
         if (bmk.length === 0) {
           console.log("New bookmark:", info.href);
 
-          add(hash, info); // add the bookmark, upsert embeddings etc.
+          retriever.add(hash, info); // add the bookmark, upsert embeddings etc.
         } else {
           console.log("Found bookmark:", info.href);
 
@@ -61,7 +61,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       const hash = message.payload;
 
       console.log("Deleting bookmark:", hash);
-      del(hash);
+      retriever.del(hash);
 
       break;
 
@@ -77,10 +77,14 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       console.log("Searching for:", query);
 
       // const bmk: any[] = []; //await 
-      search(query).then((bmk) => {
+      retriever.search(query)
+      .then((bmk) => {
         console.dir(bmk);
 
         sendResponse({ type: "result", payload: bmk });
+      })
+      .catch((err) => {
+        sendResponse({ type: "error", payload: (err as Error) });
       });
       break;
 
@@ -88,16 +92,6 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       console.warn("Unknown message type:", message.type);
   };
   return true; // keep the channel open?
-});
-
-
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-    console.log(
-      `Storage key "${key}" in namespace "${namespace}" changed.`,
-      `Old value was "${oldValue}", new value is "${newValue}".`
-    );
-  }
 });
 
 // ------------------------------

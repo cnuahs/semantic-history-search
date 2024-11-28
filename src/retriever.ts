@@ -1,5 +1,41 @@
 // 2024-11-11 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
+
+// listen for changes to settings that affect the retriever
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
+    console.log(
+      `Storage key "${key}" in namespace "${namespace}" changed.`,
+      `Old value was "${oldValue}", new value is "${newValue}".`
+    );
+
+    if (namespace === "sync" && key === "settings") {
+      setup(newValue)
+      .then((_retriever) => {
+        console.log("Retriever initialised.");
+        retriever = _retriever;
+      })
+      .catch((err) => {
+        console.error("Retriever initialisation failed:", err);
+        retriever = null;
+        // throw err;
+      });
+    }
+
+    if (namespace === "local" && key === "bookmarks") {
+      // update the local cache?
+      localCache.bookmarks = newValue;
+      console.log("Updated local cache with bookmarks.", localCache);
+    }
+  }
+});
+
+const localCache: { bookmarks: Bookmark[] } = { bookmarks: [] };
+const initLocalCache = chrome.storage.local.get().then((items) => {
+    // copy all items to localCache
+    Object.assign(localCache, items);
+});
+
 /*
  * text splitter(s)...
  */
@@ -22,7 +58,7 @@ interface NaiveTextSplitterParams
   // add properties here
 }
 
-export class NaiveTextSplitter
+class NaiveTextSplitter
   extends CharacterTextSplitter
   implements NaiveTextSplitterParams
 {
@@ -117,7 +153,7 @@ export class NaiveTextSplitter
 import { chunkArray } from "@langchain/core/utils/chunk_array";
 
 import { env } from '@xenova/transformers';
-env.allowLocalModels = true;
+env.allowLocalModels = false;
 env.allowRemoteModels = true; // FIXME: make this false by default (need to bundle the model with the ext?)
 env.useBrowserCache = true;
 
@@ -161,10 +197,10 @@ class HuggingFaceTransformersEmbeddingsSmlMem
     }
 }
 
-export const modl = new HuggingFaceTransformersEmbeddingsSmlMem({
-  // batchSize: 128,
-  model: "Xenova/all-MiniLM-L6-v2"
-});
+// const model = new HuggingFaceTransformersEmbeddingsSmlMem({
+//   // batchSize: 128,
+//   model: "Xenova/all-MiniLM-L6-v2"
+// });
 
 // import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
 // const model = new HuggingFaceInferenceEmbeddings({
@@ -190,7 +226,7 @@ import {
 import { Document } from "@langchain/core/documents";
 import { PineconeStore } from "@langchain/pinecone"; // requires "experiments.topLevelAwait: true" in custom-webpack-config.ts
 
-export class PineconeStoreNoContent
+class PineconeStoreNoContent
   extends PineconeStore {
 
   // constructor(embeddings: EmbeddingsInterface, params: PineconeStoreParams) {
@@ -287,27 +323,16 @@ export class PineconeStoreNoContent
 
 import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 
-// import { PINECONE_API_KEY } from "./secrets";
-import settings from "./settings"
-import { Setting } from "./settings";
-
-const apiKey = await settings.get("pinecone-api-key") as Setting;
-const pc = new PineconeClient({ apiKey: apiKey.value });
-
-const namespace = ""; // default: empty namespace
-const index = pc.index("vhs-ext").namespace(namespace); // FIXME: .Index vs .index?
-
-const vStore = await PineconeStoreNoContent.fromExistingIndex(modl, { pineconeIndex: index, maxConcurrency: 5 });
-
-
 /*
  * "document" store... actually, where we'll store bookmarks
  */
 
 import { InMemoryStore } from "@langchain/core/stores"
 
-export const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
-
+const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
+initLocalCache.then(() => {
+  console.log("Loaded local cache:", localCache);
+});
 
 /*
  * bookmark abstraction...
@@ -370,7 +395,7 @@ export class Bookmark
 // TODO: methods for loading and storing bookmarks
 
 // add document/bookmark to dStore
-async function storeBookmark( doc: Record<string, Document> ) {
+async function addBookmark( doc: Record<string, Document> ) {
   // console.dir(doc)
 
   // serialize the document and store it in the docstore
@@ -382,8 +407,32 @@ async function storeBookmark( doc: Record<string, Document> ) {
   // console.dir(docs);
 
   await dStore.mset(docs);
+
+  // // save to storage.local...
+  // const ids = [];
+  // for await (const id of dStore.yieldKeys()) {
+  //   ids.push(id);
+  // }
+  // dStore.mget(ids)
+  // .then((results) => {
+  //   const docs: Bookmark[] = results
+  //     .filter((doc): doc is Uint8Array => doc !== undefined)
+  //     .map((doc) => Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(doc))));
+  //   localCache.bookmarks = docs;
+  //   return chrome.storage.local.set(localCache);
+  // })
+  // .catch((err) => {
+  //   console.error("Failed to save bookmarks to local storage:", err);
+  // });
+
 }
 
+// async function getBookmark( id: string | string[] | null ) {
+//   id = !id ? dStore.yieldKeys() : Array.isArray(id) ? id : [id];
+
+//   const results = await dStore.mget(id);
+//   return results.map((bmk) => bmk ? JSON.parse(new TextDecoder().decode(bmk)) : null);
+// }
 
 /*
  * Retriever...
@@ -391,22 +440,87 @@ async function storeBookmark( doc: Record<string, Document> ) {
 
 import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
 
-const retriever = new ParentDocumentRetriever({
-  vectorstore: vStore,
-  byteStore: dStore,
-  // Optional, not required if you're already passing in split documents
-  // parentSplitter: new RecursiveCharacterTextSplitter({
-  //   chunkOverlap: 0,
-  //   chunkSize: 500,
-  // }),
-  childSplitter: new NaiveTextSplitter(),
-  // Optional `k` parameter to search for more child documents in VectorStore.
-  // Note that this does not exactly correspond to the number of final (parent) documents
-  // retrieved, as multiple child documents can point to the same parent.
-  childK: 500,
-  // Optional `k` parameter to limit number of final, parent documents returned from this
-  // retriever and sent to LLM. This is an upper-bound, and the final count may be lower than this.
-  parentK: 5,
+let retriever: ParentDocumentRetriever | null = null;
+
+import settings from "./settings"
+import { Setting } from "./settings";
+
+function setup(settings: any): Promise<ParentDocumentRetriever> {
+  // set up the retriever with the supplied settings
+  console.log("Setting up the retriever with settings:", settings);
+
+  return new Promise<ParentDocumentRetriever>((resolve, reject) => {
+
+    // embedding model
+    // if (!settings["embedding-model"].value) {
+    //   reject(new Error("No embedding model specified."));
+    // }
+    const model = new HuggingFaceTransformersEmbeddingsSmlMem({
+      // batchSize: 128,
+      model: "Xenova/all-MiniLM-L6-v2" // settings["embedding-model"].value
+    });
+
+    // vector store 
+    if (!settings["pinecone-index"].value || !settings["pinecone-api-key"].value) {
+      reject(new Error("Pinecone settings not initialized."));
+    }
+    const pc = new PineconeClient({ apiKey: settings["pinecone-api-key"].value });
+    const index = pc.index(settings["pinecone-index"].value).namespace(settings["pinecone-namespace"].value); // FIXME: .Index vs .index?
+  
+    const vStore = PineconeStoreNoContent.fromExistingIndex(model, { pineconeIndex: index, maxConcurrency: 5 });
+
+    // document store
+    // const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
+    initLocalCache.then(() => {
+      const bookmarks = localCache.bookmarks;
+      if (bookmarks.length > 0) {
+        const jnk = Object.fromEntries(bookmarks.map((bmk) => [bmk.id, bmk]));
+        addBookmark(jnk);
+      }
+    });
+
+    Promise.all([vStore])
+    .then((values) => {
+      const [ vStore ] = values;
+
+      // finally... the retriever
+      const retriever = new ParentDocumentRetriever({
+        vectorstore: vStore,
+        byteStore: dStore,
+        
+        // not required, we're not interested in retrieving chunks within the parent documents
+        // parentSplitter: new RecursiveCharacterTextSplitter({
+        //   chunkOverlap: 0,
+        //   chunkSize: 500,
+        // }),
+        childSplitter: new NaiveTextSplitter(),
+
+        childK: 500, // the number of nearest neighbours (i.e., child documents) to retrieve
+        parentK: 5, // upper bound on the number of parent document to return
+      });
+      resolve(retriever);
+    })
+    .catch((err) => {
+      reject(err);
+    });
+  });
+}
+
+// initialise the retriever...
+settings.get().then((_settings) => {
+  // FIXME: ugly!!
+  const ss = Object.fromEntries((_settings as Setting[]).map((value) => {return [value.name, { value: value.value }]}));
+
+  setup(ss)
+  .then((_retriever) => {
+    console.log("Retriever initialised.");
+    retriever = _retriever;
+  })
+  .catch((err) => {
+    console.error("Retriever initialisation failed:", err);
+    retriever = null;
+    // throw err;
+  });
 });
 
 
@@ -416,11 +530,15 @@ const retriever = new ParentDocumentRetriever({
 
 // add bookmark
 export async function add(id: string, fields: any): Promise<void> {
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
   // create Bookmark to store
   const bmk = new Bookmark( { id: id, ...fields } );
     
   // add to dStore
-  await storeBookmark({[id]: bmk});
+  await addBookmark({[id]: bmk});
   
   // create Document for embedding
   const doc = new Document({ id: id, pageContent: fields.text });
@@ -434,19 +552,27 @@ export async function add(id: string, fields: any): Promise<void> {
 
 // delete bookmark by id
 export async function del(id: string): Promise<void> {
-  // remove from vStore
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  const vStore = retriever.vectorstore as PineconeStore; // local ref?
+  const index = vStore.pineconeIndex;
+
   if (id.length === 0) {
-    // remove *all* records from the index!!
+    // remove *all* records from vStore
     await index.deleteAll();
 
+    // remove *all* records from dStore
     const ids = [];
     for await (const id of dStore.yieldKeys()) {
       ids.push(id);
     }
-    return index.deleteMany(ids);
+    return dStore.mdelete(ids);
   }
-  
-  let records = await vStore.pineconeIndex.listPaginated( { prefix: `${id}:` } ); // matches hash:[uuid]
+
+  // find records matching id prefix
+  let records = await index.listPaginated( { prefix: `${id}:` } ); // matches hash:[uuid]
 
   let ids = records.vectors?.map(item => item.id).filter((id): id is string => id !== undefined) || [];
   while (records.pagination) {
@@ -454,6 +580,7 @@ export async function del(id: string): Promise<void> {
     ids.push(...(records.vectors?.map(item => item.id).filter((id): id is string => id !== undefined) || []));
   }
 
+  // remove from vStore
   const batches = chunkArray(ids, 1000);
   for (let i = 0; i < batches.length; i++) {
     await index.deleteMany(batches[i] || []);
@@ -471,8 +598,17 @@ export async function get(id: string[]): Promise<Bookmark[]> {
 
 // similarity search on bookmark embeddings
 export async function search(query: string): Promise<Bookmark[]> {
-  const results = await retriever.invoke(query);
-  return Promise.resolve(results.map(doc => Bookmark.fromDocument(doc)));
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  return retriever.invoke(query)
+  .then((results) => {
+    return results.map(doc => Bookmark.fromDocument(doc));
+  })
+  .catch((err) => {
+    throw err;
+  });
 }
 
 export default { add, del, get, search };
