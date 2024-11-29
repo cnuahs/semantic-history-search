@@ -95,6 +95,58 @@
                 }
             },
             "required": ["label", "description", "value", "secure"]
+        },
+        "include-patterns": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "URL Include Patterns"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "Include urls matching any of these patterns."
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
+        },
+        "exclude-patterns": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "label": {
+                    "type": "string",
+                    "default": "URL Exclude Patterns"
+                },
+                "description": {
+                    "type": "string",
+                    "default": "Exclude urls matching any of these patterns."
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["https://*/*", "http://*/*"]
+                },
+                "secure": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": ["label", "description", "value", "secure"]
         }
     }
 }

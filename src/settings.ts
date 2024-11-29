@@ -6,7 +6,7 @@ export type Setting = {
     name: string;
     label: string;
     description: string;
-    value: string;
+    value: string | string[];
     secure: boolean;
 };
 
@@ -19,6 +19,8 @@ const _defaults = {
     "pinecone-namespace": {
     },
     "pinecone-api-key": {
+    },
+    "exclude-patterns": {
     }
 };
 
