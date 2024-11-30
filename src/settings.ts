@@ -20,6 +20,8 @@ const _defaults = {
     },
     "pinecone-api-key": {
     },
+    "include-patterns": {
+    },
     "exclude-patterns": {
     }
 };
@@ -44,11 +46,47 @@ function validate(data: any): void {
 
 validate(_defaults); // note: modifies _defaults in place
 
+// helper for chrome.storage.sync (used to store settings)
 const syncCache = { settings: _defaults };
 const initSyncCache = chrome.storage.sync.get().then((items) => {
     // copy all items to syncCache
     Object.assign(syncCache, items);
 });
+
+const callbacks: { [key: string]: ((changes: chrome.storage.StorageChange) => void)[] } = {};
+
+// listen for changes to settings and, if necessary, call all registered
+// callbacks for each changed setting
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
+        if (namespace !== "sync" && key !== "settings") {
+            return;
+        }
+
+        // console.log(
+        //   `Storage key "${key}" in namespace "${namespace}" changed.`,
+        //   `Old value was "${oldValue}", new value is "${newValue}".`
+        // );
+
+        // update the sync cache
+        syncCache.settings = newValue;
+        // console.log("Updated sync cache with settings.", syncCache);
+    
+        // notify listeners
+        Object.entries(newValue).forEach(([key, value]) => {
+            if (oldValue && oldValue[key] === value) {
+                return;
+            }
+
+            if (callbacks[key]) {
+                callbacks[key].forEach((callback) => {
+                    callback({ oldValue, newValue });
+                });
+            }
+        });    
+    }
+});
+
 
 // public API
 export async function get(...args: any[]): Promise<Setting | Setting[]> {
@@ -153,4 +191,17 @@ export function set(...args: any[]): Promise<void> {
     // FIXME: better to raise an error than to fail silently...?
 }
 
-export default { get, set };
+export function addListener(name: string | string[], callback: (changes: chrome.storage.StorageChange) => void): void {
+    if (!Array.isArray(name)) {
+        name = [name];
+    }
+
+    name.forEach(n => {
+        if (!callbacks[n]) {
+            callbacks[n] = [];
+        }
+        callbacks[n].push(callback);
+    });
+}
+
+export default { get, set, addListener };

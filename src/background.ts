@@ -2,6 +2,8 @@
 
 // import { Bookmarks } from "./bookmarks";
 
+import settings, { Setting } from "./settings"; 
+
 import retriever from "./retriever";
 
 function bin2hex(buf: ArrayBuffer) {
@@ -15,15 +17,52 @@ async function sha256(str: string) {
   return bin2hex(await crypto.subtle.digest('SHA-256', utf8));
 }
 
-// register a content script to run on all pages
-chrome.scripting.registerContentScripts([{
+settings.get() // returns *all* settings
+.then((_settings) => {
+
+  if (!Array.isArray(_settings)) {
+    _settings = [_settings];
+  }
+
+  const includes = _settings.find((setting) => setting.name === "include-patterns");
+  const excludes = _settings.find((setting) => setting.name === "exclude-patterns");
+
+  // register a content script to run on page load (actually, at document_idle)
+  chrome.scripting.registerContentScripts([{
     id : "vhs-content-script",
-    matches : [ "https://towardsdatascience.com/*", "https://medium.com/*" ], //[ "https://*/*", "http://*/*" ],
+    matches : includes ? Array.isArray(includes.value) ? includes.value : [includes.value] : [ "http://localhost/*" ], // must specify atleast one match pattern
+    excludeMatches : excludes ? Array.isArray(excludes.value) ? excludes.value : [excludes.value] : [],
     runAt : "document_idle",
     js : [ "content.js" ],
   }])
-  .then(() => console.log("Registered content script."))
+  .then(() => {
+    console.log("Registered content script.");
+    
+    // listen for changes to settings that affect the content script
+    return settings.addListener(["include-patterns", "exclude-patterns"], (changes) => {
+      console.log("Settings changed:", changes);
+
+      const includes = changes.newValue["include-patterns"];
+      const excludes = changes.newValue["exclude-patterns"];
+
+      // update the content script
+      updateContentScript([{
+        id : "vhs-content-script",
+        matches : includes ? Array.isArray(includes.value) ? includes.value : [includes.value] : [ "http://localhost/*" ], // must specify atleast one match pattern
+        excludeMatches : excludes ? Array.isArray(excludes.value) ? excludes.value : [excludes.value] : [],
+      }]);
+    });
+  })
   .catch((err) => console.warn("Registering content script failed:", err));
+
+})
+.catch((err) => console.error("Error:", err));
+
+function updateContentScript(scripts: chrome.scripting.RegisteredContentScript[]) {
+  chrome.scripting.updateContentScripts(scripts)
+  .then(() => console.log("Updated content script."))
+  .catch((err) => console.warn("Updating content script failed:", err));
+}
 
 // listen for messages from the payload.js script
 chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {

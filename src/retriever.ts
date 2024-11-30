@@ -1,38 +1,8 @@
 // 2024-11-11 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
-
-// listen for changes to settings that affect the retriever
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-    // console.log(
-    //   `Storage key "${key}" in namespace "${namespace}" changed.`,
-    //   `Old value was "${oldValue}", new value is "${newValue}".`
-    // );
-
-    if (namespace === "sync" && key === "settings") {
-      setup(newValue)
-      .then((_retriever) => {
-        console.log("Retriever initialised.");
-        retriever = _retriever;
-      })
-      .catch((err) => {
-        console.error("Retriever initialisation failed:", err);
-        retriever = null;
-        // throw err;
-      });
-    }
-
-    // handy for debugging...
-    // if (namespace === "local" && key === "bookmarks") {
-    //   // update the local cache?
-    //   localCache.bookmarks = newValue;
-    //   console.log("Updated local cache with bookmarks.", localCache);
-    // }
-  }
-});
-
-// const localCache: { bookmarks: LocalStore | null } = { bookmarks: null };
- // wtf, can only serialise/resurect serializable objects in the langchain or
+// helper for chrome.storage.local (used to store bookmarks)
+//  const localCache: { bookmarks: LocalStore | null } = { bookmarks: null };
+// wtf, can only serialise/resurect serializable objects in the langchain or
 // lancgain-core namespaces... as a workaround, for now just store the bookmarks.
 const localCache: { bookmarks: Record<string, Bookmark> } = { bookmarks: {} };
 const initLocalCache = chrome.storage.local.get().then((items) => {
@@ -477,7 +447,6 @@ async function addBookmark( doc: Record<string, Document> ) {
   await dStore.mset(docs);
 }
 
-
 /*
  * Retriever...
  */
@@ -486,8 +455,7 @@ import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
 
 let retriever: ParentDocumentRetriever | null = null;
 
-import settings from "./settings"
-import { Setting } from "./settings";
+import settings, { Setting } from "./settings";
 
 function setup(settings: any): Promise<ParentDocumentRetriever> {
   // set up the retriever with the supplied settings
@@ -496,12 +464,12 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
   return new Promise<ParentDocumentRetriever>((resolve, reject) => {
 
     // embedding model
-    // if (!settings["embedding-model"].value) {
-    //   reject(new Error("No embedding model specified."));
-    // }
+    if (!settings["embedding-model"].value) {
+      reject(new Error("No embedding model specified."));
+    }
     const model = new HuggingFaceTransformersEmbeddingsSmlMem({
       // batchSize: 128,
-      model: settings["embedding-model"].value // "Xenova/all-MiniLM-L6-v2"
+      model: settings["embedding-model"].value // e.g., "Xenova/all-MiniLM-L6-v2"
     });
 
     // vector store 
@@ -565,6 +533,19 @@ settings.get().then((_settings) => {
   });
 });
 
+// listen for changes to settings that affect the retriever
+settings.addListener(["embedding-model", "pinecone-index", "pinecone-namespace", "pinecone-api-key"], (changes) => {
+  setup(changes.newValue)
+  .then((_retriever) => {
+    console.log("Retriever initialised.");
+    retriever = _retriever;
+  })
+  .catch((err) => {
+    console.error("Retriever initialisation failed:", err);
+    retriever = null;
+    // throw err;
+  });
+});
 
 /*
  * public interface

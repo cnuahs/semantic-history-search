@@ -113,7 +113,7 @@
                     "items": {
                         "type": "string"
                     },
-                    "default": []
+                    "default": [ "https://*/*", "http://*/*" ]
                 },
                 "secure": {
                     "type": "boolean",
@@ -139,7 +139,7 @@
                     "items": {
                         "type": "string"
                     },
-                    "default": ["https://*/*", "http://*/*"]
+                    "default": [ "https://*/*", "http://*/*" ]
                 },
                 "secure": {
                     "type": "boolean",
