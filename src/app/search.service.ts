@@ -1,12 +1,15 @@
-import { Injectable } from '@angular/core';
+// Angular service providing search functionality
 
-import { Bookmark } from '../retriever';
+// 2024-06-09 - Shaun L. Cloherty <s.cloherty@ieee.org>
+
+import { Injectable } from "@angular/core";
+
+import { Bookmark } from "../retriever";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class SearchService {
-
   del(id: string): void {
     // console.log('SearchService: Deleting bookmark:', id);
 
@@ -22,28 +25,50 @@ export class SearchService {
     // console.log('SearchService: Searching for:', query);
 
     // note: the search is performed by the service worker not here
-    
+
     const msg = { type: "search", payload: query };
-    
+
     return new Promise((resolve, reject) => {
       // send msg to the service worker
-      chrome.runtime.sendMessage(msg)
-      .then((response) => {
+      chrome.runtime.sendMessage(msg).then((response) => {
         switch (response.type) {
           case "result":
             // parse response from the service worker
             // console.log('SearchService: Recieved response:', response);
             const results: Bookmark[] = response.payload;
-            resolve(results
-            .map((result: any) => result.metadata ? {
-              title: result.metadata["title"],
-              url: result.metadata["href"],
-              summary: result.pageContent,
-              count: "count" in result.metadata ? result.metadata["count"] : 0,
-              date: "date" in result.metadata ? result.metadata["date"] : 0, // 0 = midnight, 1st Jan 1970
-              id: result.id
-            } : null)
-            .filter((result: any): result is { title: string; url: string; summary: string; count: number, date: number; id: string } => result !== null));
+            resolve(
+              results
+                .map((result: any) =>
+                  result.metadata
+                    ? {
+                        title: result.metadata["title"],
+                        url: result.metadata["href"],
+                        summary: result.pageContent,
+                        count:
+                          "count" in result.metadata
+                            ? result.metadata["count"]
+                            : 0,
+                        date:
+                          "date" in result.metadata
+                            ? result.metadata["date"]
+                            : 0, // 0 = midnight, 1st Jan 1970
+                        id: result.id,
+                      }
+                    : null,
+                )
+                .filter(
+                  (
+                    result: any,
+                  ): result is {
+                    title: string;
+                    url: string;
+                    summary: string;
+                    count: number;
+                    date: number;
+                    id: string;
+                  } => result !== null,
+                ),
+            );
 
             break;
           case "error":
@@ -51,14 +76,13 @@ export class SearchService {
 
             break;
           default:
-            reject(new Error('Unexpected response from service worker.'));
+            reject(new Error("Unexpected response from service worker."));
 
             break;
         }
       });
-    });    
-
+    });
   }
 
-  constructor() { }
+  constructor() {}
 }

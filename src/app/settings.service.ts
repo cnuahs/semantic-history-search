@@ -1,21 +1,21 @@
-// Angular service wrapping Electron IPC for user settings.
+// Angular service wrapping the settings module
 
-// 2024-06-09 - Shaun L. Cloherty <s.cloherty@ieee.org>
+// 2024-11-26 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
-import { Injectable } from '@angular/core';
+import { Injectable } from "@angular/core";
 
-import _settings from '../settings';
+import _settings from "../settings";
 
-import { Setting } from '../settings';
-export type { Setting } from '../settings';
+import { Setting } from "../settings";
+export type { Setting } from "../settings";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class SettingsService {
   // key: string | null = null;
 
-  constructor() { }
+  constructor() {}
 
   // lock (): void {
   //   // console.log('SettingsService.lock()');
@@ -36,7 +36,7 @@ export class SettingsService {
   //   });
   // }
 
-  get (name?: string): Promise<Setting[]> {
+  get(name?: string): Promise<Setting[]> {
     // console.log('SettingsService.get()', name);
     // return new Promise((resolve, reject) => {
     //   this.settings && this.key ?
@@ -44,10 +44,12 @@ export class SettingsService {
     //     resolve(name ? [ _get(name) as Setting ] : _get() as Setting[]) :
     //     reject(Error('Failed to load settings!')) // locked?
     // });
-    return name ? _settings.get(name) as Promise<Setting[]> : _settings.get() as Promise<Setting[]>;
+    return name
+      ? (_settings.get(name) as Promise<Setting[]>)
+      : (_settings.get() as Promise<Setting[]>);
   }
 
-  set (settings: Setting[]): void {
+  set(settings: Setting[]): void {
     // console.log('SettingsService.set()', setting);
     _settings.set(settings);
   }

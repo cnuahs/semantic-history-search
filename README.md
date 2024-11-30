@@ -1,4 +1,6 @@
-# vhs-ext
+# semantic-history-search
+
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
 
 A Chrome extension to provide semantic search over your browsing history. It goes beyond simple keyword matching of page titles, analysing the content of visited sites and allowing you to find previously visited pages based on their meaning and relevance to your queries. This provides intuitive rediscovery of previously visited sites or specific content from your history.
 

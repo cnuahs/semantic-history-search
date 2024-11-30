@@ -1,20 +1,20 @@
-import { Component } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Component } from "@angular/core";
+import { FormsModule } from "@angular/forms";
+import { RouterLink } from "@angular/router";
 
-import { SearchService } from '../search.service';
+import { SearchService } from "../search.service";
 
-import { ResultsComponent } from '../results/results.component';
+import { ResultsComponent } from "../results/results.component";
 
 @Component({
-  selector: 'app-home',
+  selector: "app-home",
   standalone: true,
   imports: [FormsModule, RouterLink, ResultsComponent],
-  templateUrl: './home.component.html',
-  styleUrl: './home.component.css'
+  templateUrl: "./home.component.html",
+  styleUrl: "./home.component.css",
 })
 export class HomeComponent {
-  query: string = '';
+  query: string = "";
   results: any[] = [];
 
   constructor(private searchService: SearchService) {
@@ -23,13 +23,14 @@ export class HomeComponent {
 
   handleSearch() {
     // perform the search via the search service
-    this.searchService.search(this.query)
-    .then((results) => {
-      this.results = results;
-    })
-    .catch((err) => {
-      console.error('HomeComponent.handleSearch()', err);
-      // FIXME: display errors/warning as overlays on the popup
-    });
+    this.searchService
+      .search(this.query)
+      .then((results) => {
+        this.results = results;
+      })
+      .catch((err) => {
+        console.error("HomeComponent.handleSearch()", err);
+        // FIXME: display errors/warning as overlays on the popup
+      });
   }
 }

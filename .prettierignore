@@ -1,0 +1,6 @@
+# build directories
+**/dist
+.angular
+
+# generated files
+src/schemas/*.validator.*

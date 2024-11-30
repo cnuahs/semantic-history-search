@@ -1,152 +1,152 @@
 {
-    "$id": "Settings",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "additionalProperties": false,
-    "properties": {
-        "embedding-model": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "Embedding Model"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "The embedding model to use."
-                },
-                "value": {
-                    "type": "string",
-                    "default": "Xenova/all-MiniLM-L6-v2"
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
+  "$id": "Settings",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "embedding-model": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Embedding Model"
         },
-        "pinecone-index": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "Pinecone Index"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "The Pinecone index to use for vector storage and search."
-                },
-                "value": {
-                    "type": "string",
-                    "default": "vhs-ext"
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
+        "description": {
+          "type": "string",
+          "default": "The embedding model to use."
         },
-        "pinecone-namespace": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "Pinecone Namespace"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "The Pinecone namespace to use for vector storage and search."
-                },
-                "value": {
-                    "type": "string",
-                    "default": ""
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
+        "value": {
+          "type": "string",
+          "default": "Xenova/all-MiniLM-L6-v2"
         },
-        "pinecone-api-key": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "Pinecone API Key"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "The Pinecone API key to use for vector storage and search."
-                },
-                "value": {
-                    "type": "string",
-                    "default": ""
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": true
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
-        },
-        "include-patterns": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "URL Include Patterns"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "Include urls matching any of these patterns."
-                },
-                "value": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [ "https://*/*", "http://*/*" ]
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
-        },
-        "exclude-patterns": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "label": {
-                    "type": "string",
-                    "default": "URL Exclude Patterns"
-                },
-                "description": {
-                    "type": "string",
-                    "default": "Exclude urls matching any of these patterns."
-                },
-                "value": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "default": [ "https://*/*", "http://*/*" ]
-                },
-                "secure": {
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": ["label", "description", "value", "secure"]
+        "secure": {
+          "type": "boolean",
+          "default": false
         }
+      },
+      "required": ["label", "description", "value", "secure"]
+    },
+    "pinecone-index": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Pinecone Index"
+        },
+        "description": {
+          "type": "string",
+          "default": "The Pinecone index to use for vector storage and search."
+        },
+        "value": {
+          "type": "string",
+          "default": "shs-ext"
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["label", "description", "value", "secure"]
+    },
+    "pinecone-namespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Pinecone Namespace"
+        },
+        "description": {
+          "type": "string",
+          "default": "The Pinecone namespace to use for vector storage and search."
+        },
+        "value": {
+          "type": "string",
+          "default": ""
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["label", "description", "value", "secure"]
+    },
+    "pinecone-api-key": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Pinecone API Key"
+        },
+        "description": {
+          "type": "string",
+          "default": "The Pinecone API key to use for vector storage and search."
+        },
+        "value": {
+          "type": "string",
+          "default": ""
+        },
+        "secure": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": ["label", "description", "value", "secure"]
+    },
+    "include-patterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "URL Include Patterns"
+        },
+        "description": {
+          "type": "string",
+          "default": "Include urls matching any of these patterns."
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["https://*/*", "http://*/*"]
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["label", "description", "value", "secure"]
+    },
+    "exclude-patterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "URL Exclude Patterns"
+        },
+        "description": {
+          "type": "string",
+          "default": "Exclude urls matching any of these patterns."
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["https://*/*", "http://*/*"]
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["label", "description", "value", "secure"]
     }
+  }
 }
