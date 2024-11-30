@@ -39,8 +39,8 @@
                                     </svg>                                                                            
                                 </div>
                             </div>
-                            <div formArrayName="{{setting.name}}" class="flex flex-col gap-y-1">
-                                @for (ctrl of getFormArray(setting.name).controls; track $index; let ix = $index) {
+                            <div formArrayName="{{setting.name}}" class="flex flex-col gap-y-1 max-h-28 overflow-y-auto">
+                                @for (ctrl of getFormArray(setting.name).controls; track ctrl; let ix = $index) {
                                     <div class="relative">
                                         <input id="{{setting.name}}-{{ix}}" class="w-full p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm" type="text" autocomplete="off" [formControlName]="ix" name="{{setting.value}}" ngDefaultControl placeholder="{{setting.label}}">
                                         <div class="absolute h-full right-0 top-0" (click)="delItem(setting.name,ix)"> <!-- /div>class="absolute left-0 top-0 rounded bg-transparent p-1.5 text-center text-cyan-400 transition-all shadow-sm hover:shadow focus:shadow-none active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" -->
