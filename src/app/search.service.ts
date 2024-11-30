@@ -39,10 +39,11 @@ export class SearchService {
               title: result.metadata["title"],
               url: result.metadata["href"],
               summary: result.pageContent,
-              date: new Date(),
+              count: "count" in result.metadata ? result.metadata["count"] : 0,
+              date: "date" in result.metadata ? result.metadata["date"] : 0, // 0 = midnight, 1st Jan 1970
               id: result.id
             } : null)
-            .filter((result: any): result is { title: string; url: string; summary: string; date: Date; id: string } => result !== null));
+            .filter((result: any): result is { title: string; url: string; summary: string; count: number, date: number; id: string } => result !== null));
 
             break;
           case "error":

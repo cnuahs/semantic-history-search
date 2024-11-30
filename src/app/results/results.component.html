@@ -18,8 +18,12 @@
                 </div>
                 <div class="text-sm text-slate-400">{{item.url}}</div>
                 <div>{{item.summary}}</div>
-                <div class="mt-1 italic text-xs text-slate-300 text-right">Visited {{item.date | date: 'medium'}}</div>
-            </div>                   
+                <div class="mt-1 italic text-xs text-slate-300 flex flex-row gap-2">
+                    <div class="grow">{{item.id}}</div>
+                    <div class="">{{item.count}}</div>
+                    <div class="text-right">Visited {{item.date | date: 'medium'}}</div>
+                </div>
+            </div>
         }
         @empty {
             <div class="w-full p-4 bg-white text-center rounded-md">No results for current search text.</div>

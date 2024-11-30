@@ -384,6 +384,8 @@ export class Bookmark
       title: fields.title ? fields.title : null,
       href: fields.href ? fields.href : null,
       host: fields.host ? fields.host : null,
+      count: fields.count ? fields.count : 0,
+      date: fields.date ? fields.date : 0, // 1970-01-01:00:00:00Z
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -417,14 +419,30 @@ export class Bookmark
     this.pageContent = value;
   }
 
+  get count() {
+    return this.metadata["count"];
+  }
+  set count(value: number) {
+    this.metadata["count"] = value;
+  }
+
+  get date() {
+    return this.metadata["date"];
+  }
+  set date(value: number) {
+    this.metadata["date"] = value;
+  }
+
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>) : Bookmark {
     const instance = new Bookmark( {
       id: doc.id,
-      title: doc.metadata? doc.metadata["title"] : null,
-      href: doc.metadata? doc.metadata["href"] : null,
-      host: doc.metadata? doc.metadata["host"] : null,
-      excerpt: doc.pageContent
+      title: "title" in doc.metadata ? doc.metadata["title"] : null,
+      href: "href" in doc.metadata ? doc.metadata["href"] : null,
+      host: "host" in doc.metadata ? doc.metadata["host"] : null,
+      excerpt: doc.pageContent,
+      count: "count" in doc.metadata ? doc.metadata["count"] : null,
+      date: "date" in doc.metadata ? doc.metadata["date"] : null
     });
     return instance;
   }
@@ -558,7 +576,7 @@ export async function add(id: string, fields: any): Promise<void> {
   }
 
   // create Bookmark to store
-  const bmk = new Bookmark( { id: id, ...fields } );
+  const bmk = new Bookmark( { id: id, count: 1, date: Date.now(), ...fields } );
     
   // add to dStore
   await addBookmark({[id]: bmk});
@@ -614,9 +632,49 @@ export async function del(id: string): Promise<void> {
 }
 
 // get bookmarks by id
-export async function get(id: string[]): Promise<Bookmark[]> {
-  const results = await dStore.mget(id);
-  return results.map((bmk) => bmk ? JSON.parse(new TextDecoder().decode(bmk)) : null);
+export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
+  if (id) {
+    // const results = await dStore.mget(id);
+    // return results.map((bmk) => bmk ? Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(bmk))) : null);
+
+    return dStore.mget(id)
+    .then((results) => {
+      return results.map((bmk) => bmk ? Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(bmk))) : null);
+    });
+  }
+
+  // return *all* bookmarks
+  return new Promise((resolve,_reject) => {
+    resolve(Object.entries(dStore.store).map(([_key, value]) => Bookmark.fromDocument(value)));
+  });
+}
+
+// update bookmark by id
+export async function update(id: string, fields: object): Promise<void> {
+  if (fields instanceof Bookmark) {
+    console.log("Updating bookmark:", fields);
+    return new Promise((resolve,reject) => {
+      if (id !== fields.id) {
+        reject(new Error(`Supplied id ${id} does not match the bookmark id: ${fields.id}`));
+      }
+      // update the bookmark
+      resolve(addBookmark({[id]: fields}));
+    });
+  }
+
+  return get([id])
+  .then((bmk) => {
+    if (!bmk[0]) {
+      throw new Error(`Bookmark with id ${id} not found.`);
+    }
+
+    if ("id" in fields) {
+      throw new Error("Cannot update id.");
+    }
+
+    // update the bookmark
+    return addBookmark({[id]: Object.assign(bmk[0], fields)});
+  });
 }
 
 // similarity search on bookmark embeddings
@@ -634,7 +692,7 @@ export async function search(query: string): Promise<Bookmark[]> {
   });
 }
 
-export default { add, del, get, search };
+export default { add, del, get, update, search };
 
 
 

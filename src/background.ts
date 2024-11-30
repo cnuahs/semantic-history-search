@@ -2,9 +2,9 @@
 
 // import { Bookmarks } from "./bookmarks";
 
-import settings, { Setting } from "./settings"; 
+import settings from "./settings"; 
 
-import retriever from "./retriever";
+import retriever, { Bookmark } from "./retriever";
 
 function bin2hex(buf: ArrayBuffer) {
   const hex = Array.from(new Uint8Array(buf))
@@ -81,17 +81,21 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         console.log("SHA256: %s", hash);
 
         // search for existing bookmark
-        let bmk = (await retriever.get([hash])).filter((bmk) => bmk !== null);
+        // let bmk = (await retriever.get([hash])).filter((bmk) => bmk !== null)[0];
+        let bmk = (await retriever.get([hash]))[0];
 
-        if (bmk.length === 0) {
-          console.log("New bookmark:", info.href);
-
-          retriever.add(hash, info); // add the bookmark, upsert embeddings etc.
-        } else {
-          console.log("Found bookmark:", info.href);
+        if (bmk) {
+          console.log("Found bookmark:", bmk.href);
 
           // TODO: update the metadata (timestamp etc.)?
+          retriever.update(hash, { count: bmk.count += 1 });
+          return;
         }
+
+        console.log("New bookmark:", info.href);
+
+        retriever.add(hash, info); // add the bookmark, upsert embeddings etc.
+          
       });
 
       break;
@@ -109,7 +113,16 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       if (query === "") {
         console.warn("Empty query string.");
-        sendResponse({ type: "result", payload: [] }); // FIXME: return an empty array???
+
+        // get *all* bookmarks
+        retriever.get()
+        .then((bmk) => {
+          sendResponse({ type: "result", payload: bmk });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: (err as Error) });
+        });
+
         break;
       }
 
