@@ -10,6 +10,8 @@ import { Router, RouterLink } from "@angular/router";
 
 import { SettingsService, Setting } from "../settings.service";
 
+import { ActionsComponent } from "../actions/actions.component";
+
 // import { Pipe, PipeTransform } from '@angular/core';
 
 // @Pipe({name: 'names', standalone: true, pure: true})
@@ -22,7 +24,7 @@ import { SettingsService, Setting } from "../settings.service";
 @Component({
   selector: "app-settings",
   standalone: true,
-  imports: [FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, ActionsComponent],
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
 })
