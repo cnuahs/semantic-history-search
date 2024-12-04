@@ -84,5 +84,35 @@ export class SearchService {
     });
   }
 
+  async dump(): Promise<string> {
+    console.log("SearchService: Dumping history.");
+
+    // get history (as json string) from the service worker
+
+    const msg = { type: "dump-history", payload: {} };
+
+    // send msg to the service worker
+    return chrome.runtime.sendMessage(msg).then((response) => {
+      if (response.type !== "history") {
+        throw new Error("Unexpected response from service worker.");
+      }
+
+      const json: string = response.payload;
+
+      return json;
+    });
+  }
+
+  async load(json: string): Promise<void> {
+    console.log("SearchService: Loading history.");
+
+    // pass history (as json string) to the service worker
+
+    const msg = { type: "load-history", payload: json };
+
+    // send msg to the service worker
+    return chrome.runtime.sendMessage(msg);
+  }
+
   constructor() {}
 }

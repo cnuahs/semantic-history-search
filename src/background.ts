@@ -119,6 +119,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
           // TODO: update the metadata (timestamp etc.)?
           retriever.update(hash, { count: (bmk.count += 1) });
+
           return;
         }
 
@@ -127,7 +128,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         retriever.add(hash, info); // add the bookmark, upsert embeddings etc.
       });
 
-      break;
+      return false; // close the channel
 
     case "del-bookmark":
       const hash = message.payload;
@@ -135,7 +136,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       console.log("Deleting bookmark:", hash);
       retriever.del(hash);
 
-      break;
+      return false; // close the channel;
 
     case "search":
       const query = message.payload;
@@ -169,11 +170,39 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         .catch((err) => {
           sendResponse({ type: "error", payload: err as Error });
         });
+
       break;
+
+    case "dump-history":
+      console.log("Dumping history.");
+      retriever
+        .toJSON()
+        .then((json) => {
+          sendResponse({ type: "history", payload: json });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+
+      break;
+
+    case "load-history":
+      console.log("Loading history.");
+
+      const json = message.payload;
+
+      retriever.fromJSON(json).then(() => {
+        console.log("Loaded!!?");
+      });
+
+      return false; // close the channel
 
     default:
       console.warn("Unknown message type:", message.type);
+
+      return false; // close the channel
   }
+
   return true; // keep the channel open?
 });
 

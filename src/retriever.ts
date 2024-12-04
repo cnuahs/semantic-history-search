@@ -303,7 +303,7 @@ class PineconeStoreNoContent extends PineconeStore {
       this.caller.call(async () => namespace.upsert(chunk)),
     );
 
-    await Promise.all(batchRequests);
+    await Promise.all(batchRequests); // FIXME: need to catch and store the max LSU for the upsert operations
 
     return documentIds;
   }
@@ -753,4 +753,111 @@ export async function search(query: string): Promise<Bookmark[]> {
     });
 }
 
-export default { add, del, get, update, search };
+// dump/export browsing history to file
+import { FetchResponse } from "@pinecone-database/pinecone";
+
+function exprnd(lambda: number): number {
+  return -Math.log(1 - Math.random()) / lambda;
+}
+
+// export browsing history as json string
+export async function toJSON(): Promise<string> {
+  // returns the downloadId or undefined
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  // FIXME: check LSU is >= the LSU returned by the last upsert/delete operation
+
+  // get *all* vectors from the vector store
+  const vStore = retriever.vectorstore as PineconeStore;
+  const index = vStore.pineconeIndex;
+
+  let promises = []; // empty promises
+
+  let records = await index.listPaginated({});
+  while (records.pagination) {
+    records = await index.listPaginated({
+      paginationToken: records.pagination.next,
+    });
+    const ids = records.vectors
+      ? records.vectors.map((vector) => vector.id)
+      : [];
+
+    promises.push(
+      new Promise((resolve) => {
+        setTimeout(
+          () => resolve(index.fetch(ids.filter((id) => id !== undefined))),
+          Math.min(exprnd(0.5), 2.0) * 1000, // rate limiting, is this necessary?
+        );
+      }),
+    );
+  }
+
+  return Promise.all(promises)
+    .then((results) => {
+      console.log("Results:", results.length);
+
+      const records = {};
+      results.forEach((result) => {
+        Object.assign(records, (result as FetchResponse).records);
+      });
+
+      return records;
+    })
+    .then((records) => {
+      const obj = {
+        bookmarks: dStore.store,
+        vectors: records,
+      };
+
+      const json = JSON.stringify(obj, null, 2);
+
+      // save to file
+      // const url = URL.createObjectURL( // <-- can't do this in MV3
+      //   new Blob([json], { type: "application/json" }),
+      // );
+      // return chrome.downloads.download({
+      //   url: url,
+      //   filename: ["shs-ext", new Date().toISOString()].join("_") + ".json",
+      //   saveAs: true,
+      // });
+      return json;
+    });
+}
+
+// import browsing history as json string
+export async function fromJSON(json: string): Promise<void> {
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+  const obj = JSON.parse(json);
+
+  // update vStore
+  const vStore = retriever.vectorstore as PineconeStore;
+  const index = vStore.pineconeIndex;
+
+  const pineconeVectors: PineconeRecord<RecordMetadata>[] = Object.values(
+    obj.vectors,
+  );
+
+  const chunkSize = 100;
+  const chunkedVectors = chunkArray(pineconeVectors, chunkSize);
+  const vectorRequests = chunkedVectors.map((chunk) => {
+    return index.upsert(chunk);
+  });
+
+  // await Promise.all(vectorRequests); // FIXME: need to catch and store the max LSU for the upsert operations
+
+  // update dStore
+  const bookmarks = obj.bookmarks;
+  const bookmarkRequests = Object.entries(bookmarks).map(([id, bmk]) => {
+    return addBookmark({ [id]: bmk as Bookmark });
+  });
+
+  Promise.all([...vectorRequests, ...bookmarkRequests]).then(() => {
+    return;
+  });
+}
+
+export default { add, del, get, update, search, toJSON, fromJSON };
