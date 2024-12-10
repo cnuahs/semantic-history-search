@@ -161,7 +161,7 @@ class HuggingFaceTransformersEmbeddingsSmlMem
 {
   constructor(fields: any) {
     super(fields);
-    this.batchSize = fields.batchSize ?? 256;
+    this.batchSize = fields.batchSize ?? 100;
   }
 
   override async embedDocuments(docs: string[]): Promise<number[][]> {
@@ -171,12 +171,33 @@ class HuggingFaceTransformersEmbeddingsSmlMem
     // here we perform our own "batching" and await each batch before moving on to the next.
     console.log("Embedding %i documents", docs.length);
     console.time("Elapsed");
+
+    function docMetrics(docs: string[]) {
+      const n = docs.map(
+        (doc) => doc.replace(/[^\w\s]/g, "").split(/\s+/).length, // FIXME: naive word count... better to use the tokenizer itself
+      );
+      const mn = Math.min(...n);
+      const mx = Math.max(...n);
+      const ave = Math.round(n.reduce((a, b) => a + b, 0) / n.length);
+      return [mn, ave, mx];
+    }
+    console.log("Document (chunk) size (min/ave/max):", docMetrics(docs));
+
     let embeddings: number[][] = [];
 
     const batches: string[][] = chunkArray(docs, this.batchSize);
     for (let i = 0; i < batches.length; i++) {
       const batch = batches[i];
-      embeddings.push(...(await super.embedDocuments(batch)));
+      let embeds: number[][] = [];
+      try {
+        embeds = await super.embedDocuments(batch);
+      } catch (err) {
+        console.log(
+          `Embedding batch ${i + 1}/${batches.length} failed (min/ave/max): ${docMetrics(batch)}`,
+        );
+        console.error(err);
+      }
+      embeddings.push(...embeds);
       console.log("Embedded %i documents", embeddings.length);
     }
     console.log("Done embedding %i documents", embeddings.length);
