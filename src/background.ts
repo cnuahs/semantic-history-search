@@ -173,18 +173,18 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       break;
 
-    case "dump-history":
-      console.log("Dumping history.");
-      retriever
-        .toJSON()
-        .then((json) => {
-          sendResponse({ type: "history", payload: json });
-        })
-        .catch((err) => {
-          sendResponse({ type: "error", payload: err as Error });
-        });
+    // case "dump-history":
+    //   console.log("Dumping history.");
+    //   retriever
+    //     .toJSON()
+    //     .then((json) => {
+    //       sendResponse({ type: "history", payload: json });
+    //     })
+    //     .catch((err) => {
+    //       sendResponse({ type: "error", payload: err as Error });
+    //     });
 
-      break;
+    //   break;
 
     case "load-history":
       console.log("Loading history.");
@@ -197,6 +197,43 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       return false; // close the channel
 
+    default:
+      console.warn("Unknown message type:", message.type);
+
+      return false; // close the channel
+  }
+
+  return true; // keep the channel open?
+});
+
+import {
+  addOnChunkedMessageListener,
+  sendChunkedResponse,
+} from "ext-send-chunked-message";
+
+addOnChunkedMessageListener(function (
+  message: any,
+  _sender: any,
+  sendResponse: any,
+) {
+  // "message" is a large message, received in chunks and reassembled
+
+  switch (message.type) {
+    case "dump-history":
+      console.log("Dumping history.");
+      retriever
+        .toJSON()
+        .then((json) => {
+          sendChunkedResponse({
+            sendMessageFn: (message: any) =>
+              chrome.runtime.sendMessage(message),
+          })({ type: "history", payload: json }, sendResponse);
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+
+      break;
     default:
       console.warn("Unknown message type:", message.type);
 

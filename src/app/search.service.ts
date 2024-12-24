@@ -6,6 +6,8 @@ import { Injectable } from "@angular/core";
 
 import { Bookmark } from "../retriever";
 
+import { sendChunkedMessage } from "ext-send-chunked-message";
+
 @Injectable({
   providedIn: "root",
 })
@@ -92,7 +94,8 @@ export class SearchService {
     const msg = { type: "dump-history", payload: {} };
 
     // send msg to the service worker
-    return chrome.runtime.sendMessage(msg).then((response) => {
+    // return chrome.runtime.sendMessage(msg).then((response) => {
+    return sendChunkedMessage(msg).then((response: any) => {
       if (response.type !== "history") {
         throw new Error("Unexpected response from service worker.");
       }
