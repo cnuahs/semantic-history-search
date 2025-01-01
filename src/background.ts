@@ -173,30 +173,6 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       break;
 
-    // case "dump-history":
-    //   console.log("Dumping history.");
-    //   retriever
-    //     .toJSON()
-    //     .then((json) => {
-    //       sendResponse({ type: "history", payload: json });
-    //     })
-    //     .catch((err) => {
-    //       sendResponse({ type: "error", payload: err as Error });
-    //     });
-
-    //   break;
-
-    case "load-history":
-      console.log("Loading history.");
-
-      const json = message.payload;
-
-      retriever.fromJSON(json).then(() => {
-        console.log("Loaded!!?");
-      });
-
-      return false; // close the channel
-
     default:
       console.warn("Unknown message type:", message.type);
 
@@ -234,6 +210,17 @@ addOnChunkedMessageListener(function (
         });
 
       break;
+
+    case "load-history":
+      console.log("Loading history.");
+
+      const json = message.payload;
+
+      retriever.fromJSON(json).then(() => {
+        console.log("Loaded!!?");
+      });
+
+      return false; // close the channel
     default:
       console.warn("Unknown message type:", message.type);
 

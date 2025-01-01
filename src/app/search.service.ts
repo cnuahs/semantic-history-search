@@ -114,7 +114,8 @@ export class SearchService {
     const msg = { type: "load-history", payload: json };
 
     // send msg to the service worker
-    return chrome.runtime.sendMessage(msg);
+    // return chrome.runtime.sendMessage(msg);
+    return sendChunkedMessage(msg);
   }
 
   constructor() {}
