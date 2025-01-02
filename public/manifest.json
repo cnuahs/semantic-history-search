@@ -12,7 +12,21 @@
   "action": {
     "default_popup": "index.html"
   },
-  "permissions": ["activeTab", "scripting", "storage", "downloads"],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+B",
+        "mac": "Command+B"
+      }
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "unlimitedStorage",
+    "downloads"
+  ],
   "host_permissions": ["https://*/*", "http://*/*"],
   "background": {
     "service_worker": "background.js",
