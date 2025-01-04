@@ -643,13 +643,16 @@ export async function add(id: string, fields: any): Promise<void> {
   // add to dStore
   await addBookmark({ [id]: bmk });
 
-  // create Document for embedding
-  const doc = new Document({ id: id, pageContent: fields.text });
+  // create Document(s) for embedding
+  let doc = [new Document({ id: id, pageContent: fields.title })];
+  if (fields.text) {
+    doc.push(new Document({ id: id, pageContent: fields.text }));
+  }
 
   // add to retriever
-  return retriever.addDocuments([doc], {
+  return retriever.addDocuments(doc, {
     addToDocstore: false,
-    ids: [id],
+    ids: Array(doc.length).fill(id),
   });
 }
 
@@ -862,7 +865,7 @@ export async function fromJSON(json: string): Promise<void> {
     obj.vectors,
   );
 
-  const chunkSize = 100;
+  const chunkSize = 500;
   const chunkedVectors = chunkArray(pineconeVectors, chunkSize);
   const vectorRequests = chunkedVectors.map((chunk) => {
     return index.upsert(chunk);
