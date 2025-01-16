@@ -868,7 +868,13 @@ export async function fromJSON(json: string): Promise<void> {
   const chunkSize = 500;
   const chunkedVectors = chunkArray(pineconeVectors, chunkSize);
   const vectorRequests = chunkedVectors.map((chunk) => {
-    return index.upsert(chunk);
+    // return index.upsert(chunk);
+    return new Promise((resolve) => {
+      setTimeout(
+        () => resolve(index.upsert(chunk)),
+        Math.min(exprnd(0.5), 2.0) * 1000, // rate limiting, is this necessary?
+      );
+    });
   });
 
   // await Promise.all(vectorRequests); // FIXME: need to catch and store the max LSU for the upsert operations
