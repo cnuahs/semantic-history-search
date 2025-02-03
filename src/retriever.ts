@@ -793,61 +793,72 @@ export async function toJSON(): Promise<string> {
 
   // FIXME: check LSU is >= the LSU returned by the last upsert/delete operation
 
-  // get *all* vectors from the vector store
-  const vStore = retriever.vectorstore as PineconeStore;
-  const index = vStore.pineconeIndex;
+  // // get *all* vectors from the vector store
+  // const vStore = retriever.vectorstore as PineconeStore;
+  // const index = vStore.pineconeIndex;
 
-  let promises = []; // empty promises
+  // let promises = []; // empty promises
 
-  let records = await index.listPaginated({});
-  while (records.pagination) {
-    records = await index.listPaginated({
-      paginationToken: records.pagination.next,
-    });
-    const ids = records.vectors
-      ? records.vectors.map((vector) => vector.id)
-      : [];
+  // let records = await index.listPaginated({});
+  // while (records.pagination) {
+  //   records = await index.listPaginated({
+  //     paginationToken: records.pagination.next,
+  //   });
+  //   const ids = records.vectors
+  //     ? records.vectors.map((vector) => vector.id)
+  //     : [];
 
-    promises.push(
-      new Promise((resolve) => {
-        setTimeout(
-          () => resolve(index.fetch(ids.filter((id) => id !== undefined))),
-          Math.min(exprnd(0.5), 2.0) * 1000, // rate limiting, is this necessary?
-        );
-      }),
-    );
-  }
+  //   promises.push(
+  //     new Promise((resolve) => {
+  //       setTimeout(
+  //         () => resolve(index.fetch(ids.filter((id) => id !== undefined))),
+  //         Math.min(exprnd(0.5), 2.0) * 1000, // rate limiting, is this necessary?
+  //       );
+  //     }),
+  //   );
+  // }
 
-  return Promise.all(promises)
-    .then((results) => {
-      console.log("Results:", results.length);
+  // return Promise.all(promises)
+  //   .then((results) => {
+  //     console.log("Results:", results.length);
 
-      const records = {};
-      results.forEach((result) => {
-        Object.assign(records, (result as FetchResponse).records);
-      });
+  //     const records = {};
+  //     results.forEach((result) => {
+  //       Object.assign(records, (result as FetchResponse).records);
+  //     });
 
-      return records;
-    })
-    .then((records) => {
-      const obj = {
-        bookmarks: dStore.store,
-        vectors: records,
-      };
+  //     return records;
+  //   })
+  //   .then((records) => {
+  //     console.log("Records:", Object.keys(records).length);
 
-      const json = JSON.stringify(obj, null, 2);
+  //     const obj = {
+  //       bookmarks: dStore.store,
+  //       vectors: {}, // records,
+  //     };
 
-      // save to file
-      // const url = URL.createObjectURL( // <-- can't do this in MV3
-      //   new Blob([json], { type: "application/json" }),
-      // );
-      // return chrome.downloads.download({
-      //   url: url,
-      //   filename: ["shs-ext", new Date().toISOString()].join("_") + ".json",
-      //   saveAs: true,
-      // });
-      return json;
-    });
+  //     const json = JSON.stringify(obj, null, 2);
+
+  //     // save to file
+  //     // const url = URL.createObjectURL( // <-- can't do this in MV3
+  //     //   new Blob([json], { type: "application/json" }),
+  //     // );
+  //     // return chrome.downloads.download({
+  //     //   url: url,
+  //     //   filename: ["shs-ext", new Date().toISOString()].join("_") + ".json",
+  //     //   saveAs: true,
+  //     // });
+  //     return json;
+  //   });
+
+  const obj = {
+    bookmarks: dStore.store,
+    vectors: {}, // records,
+  };
+
+  const json = JSON.stringify(obj, null, 2);
+
+  return json;
 }
 
 // import browsing history as json string
