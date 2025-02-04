@@ -6,7 +6,6 @@ import { SearchService } from "../search.service";
 
 @Component({
   selector: "app-actions",
-  standalone: true,
   imports: [],
   templateUrl: "./actions.component.html",
   styleUrl: "./actions.component.css",

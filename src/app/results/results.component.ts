@@ -5,7 +5,6 @@ import { SearchService } from "../search.service";
 
 @Component({
   selector: "app-results",
-  standalone: true,
   imports: [SlicePipe, DatePipe],
   templateUrl: "./results.component.html",
   styleUrl: "./results.component.css",

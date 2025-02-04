@@ -23,7 +23,6 @@ import { ActionsComponent } from "../actions/actions.component";
 
 @Component({
   selector: "app-settings",
-  standalone: true,
   imports: [FormsModule, ReactiveFormsModule, RouterLink, ActionsComponent],
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",

@@ -75,7 +75,7 @@ The `development` configuration builds the extension without minification. Highl
 
 ### Notes
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 18.2.11.
+This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 19.1.4.
 
 For help on the Angular CLI use `npx ng help` or see the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
 

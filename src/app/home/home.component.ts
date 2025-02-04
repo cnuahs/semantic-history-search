@@ -8,7 +8,6 @@ import { ResultsComponent } from "../results/results.component";
 
 @Component({
   selector: "app-home",
-  standalone: true,
   imports: [FormsModule, RouterLink, ResultsComponent],
   templateUrl: "./home.component.html",
   styleUrl: "./home.component.css",
