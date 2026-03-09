@@ -53,7 +53,7 @@
     "prettier": "^3.4.2",
     "prettier-eslint": "^16.4.2",
     "tailwindcss": "^4.2.1",
-    "typescript": "~5.8.0"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "prettier-eslint": {
