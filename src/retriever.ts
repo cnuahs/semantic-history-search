@@ -3,14 +3,17 @@
 // 2024-11-11 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
 // helper for chrome.storage.local (used to store bookmarks)
-//  const localCache: { bookmarks: LocalStore | null } = { bookmarks: null };
+
 // wtf, can only serialise/resurect serializable objects in the langchain or
-// lancgain-core namespaces... as a workaround, for now just store the bookmarks.
-const localCache: { bookmarks: Record<string, Bookmark> } = { bookmarks: {} };
-const initLocalCache = chrome.storage.local.get().then((items) => {
-  // copy all items to localCache
-  Object.assign(localCache, items);
-});
+// langchain-core namespaces... as a workaround, for now just store the bookmarks.
+// const localCache: { bookmarks: Record<string, Bookmark> } = { bookmarks: {} };
+// const initLocalCache = chrome.storage.local.get().then((items) => {
+//   // copy all items to localCache
+//   Object.assign(localCache, items);
+// });
+
+import { db } from './db';
+import { migrate } from './db/migrations';
 
 /*
  * text splitter(s)...
@@ -370,10 +373,13 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
       this.store[key] = Bookmark.fromDocument(
         JSON.parse(new TextDecoder().decode(value)),
       );
-    }
 
-    // save to chrome.storage.local...
-    return chrome.storage.local.set({ bookmarks: this.store }); // FIXME: Object.values()?
+      // save to db
+      await db.upsert(key, (existing) => ({
+        ...existing,
+        ...this.store[key],
+      }));
+    }
   }
 
   override async mget(keys: string[]): Promise<(Uint8Array | undefined)[]> {
@@ -389,10 +395,13 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
   override async mdelete(keys: string[]): Promise<void> {
     for (const key of keys) {
       delete this.store[key];
+      try {
+        const doc = await db.get(key);
+        await db.remove(doc);
+      } catch {
+        // doesn't exist... nothing to do?
+      }
     }
-
-    // save to chrome.storage.local...
-    return chrome.storage.local.set({ bookmarks: this.store }); // FIXME: Object.values()?
   }
 
   override async *yieldKeys(
@@ -408,10 +417,19 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
 
 // const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
 const dStore = new InMemoryLocalStore({}); // empty store
-initLocalCache.then(() => {
-  console.log("Loaded local cache:", localCache);
-  dStore.store = localCache.bookmarks as Record<string, Bookmark>;
-});
+// initLocalCache.then(() => {
+//   console.log("Loaded local cache:", localCache);
+//   dStore.store = localCache.bookmarks as Record<string, Bookmark>;
+// });
+const initLocalCache = migrate(db).then(() =>
+  db.allDocs({ include_docs: true }).then((result) => {
+    result.rows
+      .filter((row) => !row.id.startsWith('migration_'))
+      .forEach((row) => {
+        dStore.store[row.id] = row.doc as unknown as Bookmark;
+      });
+  })
+);
 
 /*
  * bookmark abstraction...
@@ -520,7 +538,7 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
   // set up the retriever with the supplied settings
   console.log("Setting up the retriever with settings:", settings);
 
-  return new Promise<ParentDocumentRetriever>((resolve, reject) => {
+  return initLocalCache.then(() => new Promise<ParentDocumentRetriever>((resolve, reject) => {
     // embedding model
     if (!settings["embedding-model"].value) {
       reject(new Error("No embedding model specified."));
@@ -581,7 +599,7 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
       .catch((err) => {
         reject(err);
       });
-  });
+  }));
 }
 
 // initialise the retriever...
