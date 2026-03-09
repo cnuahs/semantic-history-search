@@ -60,23 +60,17 @@ settings
           (changes) => {
             console.log("Settings changed:", changes);
 
-            const includes = changes.newValue["include-patterns"];
-            const excludes = changes.newValue["exclude-patterns"];
+            const newValue = changes.newValue as Record<string, string[]>;
+            const includes = newValue["include-patterns"];
+            const excludes = newValue["exclude-patterns"];
 
             // update the content script
             updateContentScript([
               {
                 id: "shs-content-script",
-                matches: includes
-                  ? Array.isArray(includes.value)
-                    ? includes.value
-                    : [includes.value]
-                  : ["http://localhost/*"], // must specify atleast one match pattern
-                excludeMatches: excludes
-                  ? Array.isArray(excludes.value)
-                    ? excludes.value
-                    : [excludes.value]
-                  : [],
+                matches: includes ?? ["http://localhost/*"], // must specify atleast one match pattern
+                excludeMatches: excludes ?? [],
+                css: [],
               },
             ]);
           },
