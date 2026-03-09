@@ -37,7 +37,7 @@
     "@angular/cli": "^19.1.5",
     "@angular/compiler-cli": "^19.1.4",
     "@tailwindcss/postcss": "^4.0.3",
-    "@types/chrome": "^0.0.301",
+    "@types/chrome": "^0.1.37",
     "@types/jasmine": "^6.0.0",
     "@typescript-eslint/parser": "^8.23.0",
     "autoprefixer": "^10.4.27",

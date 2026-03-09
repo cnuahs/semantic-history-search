@@ -73,18 +73,20 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     // );
 
     // update the sync cache
-    syncCache.settings = newValue;
+    syncCache.settings = newValue as typeof syncCache.settings;
     // console.log("Updated sync cache with settings.", syncCache);
 
     // notify listeners
-    Object.entries(newValue).forEach(([key, value]) => {
-      if (oldValue && oldValue[key] === value) {
+    const newVal = newValue as Record<string, unknown>;
+    const oldVal = oldValue as Record<string, unknown>;
+    Object.entries(newVal).forEach(([key, value]) => {
+      if (oldVal && oldVal[key] === value) {
         return;
       }
-
+      
       if (callbacks[key]) {
         callbacks[key].forEach((callback) => {
-          callback({ oldValue, newValue });
+          callback({ oldValue: oldVal?.[key], newValue: value });
         });
       }
     });
