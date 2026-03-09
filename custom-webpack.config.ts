@@ -13,6 +13,25 @@ export default {
     background: "src/background.ts",
     content: "src/content.ts",
   },
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [
+          {
+            loader: 'postcss-loader',
+            options: {
+              postcssOptions: {
+                plugins: [
+                  require('@tailwindcss/postcss'),
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  },
   plugins: [
     {
       apply: (compiler) => {

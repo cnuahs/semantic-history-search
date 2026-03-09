@@ -55,7 +55,7 @@
                     <div class="relative">
                       <input
                         id="{{ setting.name }}-{{ ix }}"
-                        class="w-full p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm"
+                        class="w-full p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
                         type="text"
                         autocomplete="off"
                         [formControlName]="ix"
@@ -67,7 +67,7 @@
                         class="absolute h-full right-0 top-0"
                         (click)="delItem(setting.name, ix)"
                       >
-                        <!-- /div>class="absolute left-0 top-0 rounded bg-transparent p-1.5 text-center text-cyan-400 transition-all shadow-sm hover:shadow focus:shadow-none active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" -->
+                        <!-- /div>class="absolute left-0 top-0 rounded-sm bg-transparent p-1.5 text-center text-cyan-400 transition-all shadow-xs hover:shadow-sm focus:shadow-none active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" -->
                         <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/minus-circle.svg -->
                         <!-- prettier-ignore -->
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-full p-1.5 fill-none stroke-white stroke-1 hover:stroke-red-200">
@@ -90,7 +90,7 @@
                 </div>
                 <input
                   id="{{ setting.name }}"
-                  class="p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm"
+                  class="p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
                   type="text"
                   autocomplete="off"
                   formControlName="{{ setting.name }}"
@@ -126,7 +126,7 @@
       <input
         #passphrase
         type="password"
-        class="p-2 placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-sm"
+        class="p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
         [(ngModel)]="passphrase"
         name="passphrase"
         ngDefaultControl
