@@ -151,7 +151,7 @@ env.backends.onnx.wasm.numThreads = 1;
 import {
   HuggingFaceTransformersEmbeddings,
   HuggingFaceTransformersEmbeddingsParams,
-} from "@langchain/community/embeddings/hf_transformers";
+} from "@langchain/community/embeddings/huggingface_transformers";
 
 interface HuggingFaceTransformersEmbeddingsSmlMemParams
   extends HuggingFaceTransformersEmbeddingsParams {
@@ -528,7 +528,7 @@ async function addBookmark(doc: Record<string, Document>) {
  * Retriever...
  */
 
-import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
+import { ParentDocumentRetriever } from "@langchain/classic/retrievers/parent_document";
 
 let retriever: ParentDocumentRetriever | null = null;
 

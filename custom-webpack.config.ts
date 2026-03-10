@@ -1,5 +1,6 @@
 // see https://www.npmjs.com/package/@angular-builders/custom-webpack
 import type { Configuration } from "webpack";
+import webpack from "webpack";
 
 // Note: AJV transforms/compiles a JSON Schema to an actual JS function. You can then call that function
 //       to validate input against said schema. BUT, to generate the function AJV uses dynamic code
@@ -33,6 +34,12 @@ export default {
     ],
   },
   plugins: [
+    new webpack.NormalModuleReplacementPlugin(
+      /^node:/,
+      (resource) => {
+        resource.request = resource.request.replace(/^node:/, '');
+      }
+    ),
     {
       apply: (compiler) => {
         compiler.hooks.compile.tap("AjvPlugin", (_params) => {
@@ -49,5 +56,36 @@ export default {
   },
   experiments: {
     topLevelAwait: true, // Fix for "Module parse failed: The top-level-await experiment is not enabled" when instantiating PineconeStore
+  },
+  // resolve: {
+  //   fallback: {
+  //     fs: false,
+  //     path: false,
+  //     stream: false,
+  //   },
+  //   alias: {
+  //     // Webpack supports "data:" and "file:" URIs by default.... handle node: URI scheme with browserify fallbacks
+  //     'node:stream': 'stream-browserify',
+  //   },
+  // },
+  // resolve: {
+  //   fallback: {
+  //     fs: false,
+  //     path: false,
+  //     stream: require.resolve('stream-browserify'),
+  //   },
+  //   alias: {
+  //     'node:stream': require.resolve('stream-browserify'),
+  //     'node:buffer': require.resolve('buffer/'),
+  //     'node:util': require.resolve('util/'),
+  //     'node:events': require.resolve('events/'),
+  //   },
+  // },
+  resolve: {
+    fallback: {
+      fs: false,
+      path: false,
+      stream: false,
+    },
   },
 } as Configuration;
