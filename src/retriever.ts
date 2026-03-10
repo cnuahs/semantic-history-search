@@ -148,28 +148,45 @@ env.useBrowserCache = true;
 //     https://github.com/microsoft/onnxruntime/issues/14445
 env.backends.onnx.wasm.numThreads = 1;
 
-import {
-  HuggingFaceTransformersEmbeddings,
-  HuggingFaceTransformersEmbeddingsParams,
-} from "@langchain/community/embeddings/hf_transformers";
+import { Embeddings, EmbeddingsParams } from "@langchain/core/embeddings";
+import { pipeline, type FeatureExtractionPipeline } from "@xenova/transformers";
 
 interface HuggingFaceTransformersEmbeddingsSmlMemParams
-  extends HuggingFaceTransformersEmbeddingsParams {
-  // add properties here
+  extends EmbeddingsParams {
+    model?: string;
+    batchSize?: number;
 }
 
 class HuggingFaceTransformersEmbeddingsSmlMem
-  extends HuggingFaceTransformersEmbeddings
+  extends Embeddings
   implements HuggingFaceTransformersEmbeddingsSmlMemParams
 {
-  constructor(fields: any) {
+  model: string;
+  batchSize: number;
+  private pipe: FeatureExtractionPipeline | null = null;
+
+  constructor(fields: HuggingFaceTransformersEmbeddingsSmlMemParams) {
     super(fields);
+    this.model = fields.model!; // e.g., "Xenova/all-MiniLM-L6-v2" (should come from the users settings...)
     this.batchSize = fields.batchSize ?? 100;
+  }
+
+  private async getPipeline(): Promise<FeatureExtractionPipeline> {
+    if (!this.pipe) {
+      this.pipe = await pipeline("feature-extraction", this.model);
+    }
+    return this.pipe;
+  }
+
+  async embedQuery(text: string): Promise<number[]> {
+    const pipe = await this.getPipeline();
+    const output = await pipe(text, { pooling: "mean", normalize: true });
+    return Array.from(output.data as Float32Array);
   }
 
   override async embedDocuments(docs: string[]): Promise<number[][]> {
     // reducing the embedding model .batchSize doesn't seem to ease memory requirements, because
-    // the HuggingFaceTransformersEmbeddings class dispatches all batches concurrently.
+    // the [HuggingFaceTransformers]Embeddings class dispatches all batches concurrently.
     //
     // here we perform our own "batching" and await each batch before moving on to the next.
     console.log("Embedding %i documents", docs.length);
@@ -193,7 +210,7 @@ class HuggingFaceTransformersEmbeddingsSmlMem
       const batch = batches[i];
       let embeds: number[][] = [];
       try {
-        embeds = await super.embedDocuments(batch);
+        embeds = await Promise.all(batch.map((doc) => this.embedQuery(doc)));
       } catch (err) {
         console.log(
           `Embedding batch ${i + 1}/${batches.length} failed (min/ave/max): ${docMetrics(batch)}`,
@@ -528,7 +545,7 @@ async function addBookmark(doc: Record<string, Document>) {
  * Retriever...
  */
 
-import { ParentDocumentRetriever } from "langchain/retrievers/parent_document";
+import { ParentDocumentRetriever } from "@langchain/classic/retrievers/parent_document";
 
 let retriever: ParentDocumentRetriever | null = null;
 
@@ -791,6 +808,8 @@ export async function search(query: string): Promise<Bookmark[]> {
       return results.map((doc) => Bookmark.fromDocument(doc));
     })
     .catch((err) => {
+      console.error("Search error:", err);
+      console.error("Search error stack:", err.stack);
       throw err;
     });
 }
