@@ -57,32 +57,13 @@ export default {
   experiments: {
     topLevelAwait: true, // Fix for "Module parse failed: The top-level-await experiment is not enabled" when instantiating PineconeStore
   },
-  // resolve: {
-  //   fallback: {
-  //     fs: false,
-  //     path: false,
-  //     stream: false,
-  //   },
-  //   alias: {
-  //     // Webpack supports "data:" and "file:" URIs by default.... handle node: URI scheme with browserify fallbacks
-  //     'node:stream': 'stream-browserify',
-  //   },
-  // },
-  // resolve: {
-  //   fallback: {
-  //     fs: false,
-  //     path: false,
-  //     stream: require.resolve('stream-browserify'),
-  //   },
-  //   alias: {
-  //     'node:stream': require.resolve('stream-browserify'),
-  //     'node:buffer': require.resolve('buffer/'),
-  //     'node:util': require.resolve('util/'),
-  //     'node:events': require.resolve('events/'),
-  //   },
-  // },
   resolve: {
     fallback: {
+      // The assistant and chat streaming features in @pinecone-database/pinecone v5+ use the built-in Node.js 'fs',
+      // 'path' and 'stream' modules but these are not available in the browser environment. When webpack encounters
+      // imports for these modules it tries to find browser-compatible polyfills for them, fails, and throws
+      // "Module not found" errors. We're not using these features so just set these fallbacks to false, telling webpack to
+      // ignore these imports and not attempt to polyfill them for the browser.
       fs: false,
       path: false,
       stream: false,
