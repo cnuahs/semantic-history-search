@@ -46,14 +46,10 @@ export class SearchService {
                         title: result.metadata["title"],
                         url: result.metadata["href"],
                         summary: result.pageContent,
-                        count:
-                          "count" in result.metadata
-                            ? result.metadata["count"]
-                            : 0,
-                        date:
-                          "date" in result.metadata
-                            ? result.metadata["date"]
-                            : 0, // 0 = midnight, 1st Jan 1970
+                        visits:
+                          "visits" in result.metadata
+                            ? result.metadata["visits"]
+                            : [],
                         id: result.id,
                       }
                     : null,
@@ -65,8 +61,7 @@ export class SearchService {
                     title: string;
                     url: string;
                     summary: string;
-                    count: number;
-                    date: number;
+                    visits: number[];
                     id: string;
                   } => result !== null,
                 ),

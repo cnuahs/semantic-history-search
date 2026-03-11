@@ -38,11 +38,46 @@ async function migration_20260310(
   console.log('Migration 20260310 complete.');
 }
 
+// 2026-03-11: replace date and count with visits array
+async function migration_20260311(
+  db: PouchDB.Database
+): Promise<void> {
+  const key = 'migration_20260311';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
+
+  const result = await db.allDocs({ include_docs: true });
+  await Promise.all(
+    result.rows
+      .filter((row) => !row.id.startsWith('migration_'))
+      .map((row) => {
+        const doc = row.doc as any;
+        if (doc.metadata) {
+          // approximate visit history by replicating the .date entry
+          const count = doc.metadata.count ?? 1;
+          const date = doc.metadata.date ?? Date.now();
+          doc.metadata.visits = Array(count).fill(date);
+          delete doc.metadata.count;
+          delete doc.metadata.date;
+        }
+        return db.upsert(row.id, () => doc);
+      })
+  );
+
+  await db.put({ _id: key });
+  console.log('Migration 20260311 complete.');
+}
+
 // Add migrations here, e.g.:
 // YYYY-MM-DD: <description>
 // async function migration_YYYYMMDD(db: PouchDB.Database): Promise<void> { ... }
 
 export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260310(db);
+  await migration_20260311(db);
   // await migration_YYYYMMDD(db);
 }

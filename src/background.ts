@@ -112,7 +112,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
           console.log("Found bookmark:", bmk.href);
 
           // TODO: update the metadata (timestamp etc.)?
-          retriever.update(hash, { count: (bmk.count += 1) });
+          retriever.update(hash, { visits: [...bmk.visits, Date.now()] });
 
           return;
         }

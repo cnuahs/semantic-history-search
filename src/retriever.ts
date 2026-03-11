@@ -458,8 +458,7 @@ export class Bookmark extends Document<Record<string, any>> {
       title: fields.title ? fields.title : null,
       href: fields.href ? fields.href : null,
       host: fields.host ? fields.host : null,
-      count: fields.count ? fields.count : 0,
-      date: fields.date ? fields.date : 0, // 1970-01-01:00:00:00Z
+      visits: fields.visits ? fields.visits : [],
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -493,18 +492,19 @@ export class Bookmark extends Document<Record<string, any>> {
     this.pageContent = value;
   }
 
-  get count() {
-    return this.metadata["count"];
+  get visits(): number[] {
+    return this.metadata["visits"] ?? [];
   }
-  set count(value: number) {
-    this.metadata["count"] = value;
+  set visits(value: number[]) {
+    this.metadata["visits"] = value;
   }
 
-  get date() {
-    return this.metadata["date"];
+  get count(): number {
+    return this.visits.length;
   }
-  set date(value: number) {
-    this.metadata["date"] = value;
+
+  get date(): number {
+    return this.visits[0] ?? 0; // 1970-01-01:00:00:00Z
   }
 
   // static factory method(s)
@@ -515,8 +515,7 @@ export class Bookmark extends Document<Record<string, any>> {
       href: "href" in doc.metadata ? doc.metadata["href"] : null,
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
-      count: "count" in doc.metadata ? doc.metadata["count"] : null,
-      date: "date" in doc.metadata ? doc.metadata["date"] : null,
+      visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
     });
     return instance;
   }
@@ -673,7 +672,7 @@ export async function add(id: string, fields: any): Promise<void> {
   }
 
   // create Bookmark to store
-  const bmk = new Bookmark({ id: id, count: 1, date: Date.now(), ...fields });
+  const bmk = new Bookmark({ id: id, visits: [Date.now()], ...fields });
 
   // add to dStore
   await addBookmark({ [id]: bmk });
