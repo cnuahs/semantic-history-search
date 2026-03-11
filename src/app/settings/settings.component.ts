@@ -96,7 +96,9 @@ export class SettingsComponent implements OnInit {
     Object.entries(this.form.value).forEach(([key, value]) => {
       const setting = this.settings?.find((setting) => setting.name === key);
       if (setting) {
-        setting.value = value as string | string[];
+        setting.value = typeof setting.value === 'number'
+          ? Number(value)
+          : value as string | string[];
       }
     });
 
@@ -122,4 +124,8 @@ export class SettingsComponent implements OnInit {
   isArray(value: any) {
     return Array.isArray(value);
   }
+
+  isNumber(value: any) {
+    return typeof value === 'number';
+  }   
 }

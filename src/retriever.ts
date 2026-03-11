@@ -458,8 +458,7 @@ export class Bookmark extends Document<Record<string, any>> {
       title: fields.title ? fields.title : null,
       href: fields.href ? fields.href : null,
       host: fields.host ? fields.host : null,
-      count: fields.count ? fields.count : 0,
-      date: fields.date ? fields.date : 0, // 1970-01-01:00:00:00Z
+      visits: fields.visits ? fields.visits : [],
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -493,18 +492,19 @@ export class Bookmark extends Document<Record<string, any>> {
     this.pageContent = value;
   }
 
-  get count() {
-    return this.metadata["count"];
+  get visits(): number[] {
+    return this.metadata["visits"] ?? [];
   }
-  set count(value: number) {
-    this.metadata["count"] = value;
+  set visits(value: number[]) {
+    this.metadata["visits"] = value;
   }
 
-  get date() {
-    return this.metadata["date"];
+  get count(): number {
+    return this.visits.length;
   }
-  set date(value: number) {
-    this.metadata["date"] = value;
+
+  get date(): number {
+    return this.visits[0] ?? 0; // 1970-01-01:00:00:00Z
   }
 
   // static factory method(s)
@@ -515,8 +515,7 @@ export class Bookmark extends Document<Record<string, any>> {
       href: "href" in doc.metadata ? doc.metadata["href"] : null,
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
-      count: "count" in doc.metadata ? doc.metadata["count"] : null,
-      date: "date" in doc.metadata ? doc.metadata["date"] : null,
+      visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
     });
     return instance;
   }
@@ -673,7 +672,7 @@ export async function add(id: string, fields: any): Promise<void> {
   }
 
   // create Bookmark to store
-  const bmk = new Bookmark({ id: id, count: 1, date: Date.now(), ...fields });
+  const bmk = new Bookmark({ id: id, visits: [Date.now()], ...fields });
 
   // add to dStore
   await addBookmark({ [id]: bmk });
@@ -740,6 +739,21 @@ export async function del(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
+// count bookmarks (i.e., parent documents in dStore)
+export async function count(): Promise<number> {
+  return Object.keys(dStore.store).length;
+}
+
+// calculate frecency score — exponential decay over visits
+// lambda controls decay rate: 1/30 = visits decay to ~37% relevance after 30 days
+function frecency(visits: number[], lambda: number = 1 / 30): number {
+  const now = Date.now();
+  return visits.reduce((score, visit) => {
+    const daysAgo = (now - visit) / (1000 * 60 * 60 * 24);
+    return score + Math.exp(-lambda * daysAgo);
+  }, 0);
+}
+
 // get bookmarks by id
 export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
   if (id) {
@@ -755,12 +769,16 @@ export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
     });
   }
 
-  // return *all* bookmarks
+  // return *all* bookmarks, sorted by most recent visit
   return new Promise((resolve, _reject) => {
     resolve(
-      Object.entries(dStore.store).map(([_key, value]) =>
-        Bookmark.fromDocument(value),
-      ),
+      Object.entries(dStore.store)
+        .map(([_key, value]) => Bookmark.fromDocument(value))
+        .sort((a, b) => {
+          const aLast = a.visits[a.visits.length - 1] ?? 0;
+          const bLast = b.visits[b.visits.length - 1] ?? 0;
+          return bLast - aLast;
+        }),
     );
   });
 }
@@ -938,4 +956,4 @@ export async function fromJSON(json: string): Promise<void> {
   });
 }
 
-export default { add, del, get, update, search, toJSON, fromJSON };
+export default { add, del, count, get, update, search, toJSON, fromJSON };

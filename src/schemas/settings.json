@@ -25,7 +25,12 @@
           "default": false
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     },
     "pinecone-index": {
       "type": "object",
@@ -48,7 +53,12 @@
           "default": false
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     },
     "pinecone-namespace": {
       "type": "object",
@@ -71,7 +81,12 @@
           "default": false
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     },
     "pinecone-api-key": {
       "type": "object",
@@ -94,7 +109,12 @@
           "default": true
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     },
     "include-patterns": {
       "type": "object",
@@ -113,14 +133,22 @@
           "items": {
             "type": "string"
           },
-          "default": ["https://*/*", "http://*/*"]
+          "default": [
+            "https://*/*",
+            "http://*/*"
+          ]
         },
         "secure": {
           "type": "boolean",
           "default": false
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     },
     "exclude-patterns": {
       "type": "object",
@@ -139,14 +167,50 @@
           "items": {
             "type": "string"
           },
-          "default": ["https://*/*", "http://*/*"]
+          "default": [
+            "https://*/*",
+            "http://*/*"
+          ]
         },
         "secure": {
           "type": "boolean",
           "default": false
         }
       },
-      "required": ["label", "description", "value", "secure"]
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
+    "history-limit-days": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "History Limit (days)"
+        },
+        "description": {
+          "type": "string",
+          "default": "Number of days of browsing history to display."
+        },
+        "value": {
+          "type": "number",
+          "default": 90
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     }
   }
 }

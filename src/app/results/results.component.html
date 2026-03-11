@@ -1,11 +1,22 @@
 <div class="px-2 py-2 flex-col">
   <div class="w-full text-lg text-slate-400 uppercase flex">
-    <span class="grow">Results</span>
-    <span>{{ results.length }}</span>
+    @if (mode === 'history') {
+      <span class="grow">History</span>
+      <span>{{ results.length }} visits · {{ nrUnique }} of {{ nrTotal }} pages</span>
+    } @else {
+      <span class="grow">Results</span>
+      <span>{{ results.length }}</span>
+    }
   </div>
   <div class="w-full space-y-2 flex flex-col">
     <!-- list each result card -->
-    @for (item of results | slice: 0 : results.length; track item.id) {
+    @for (item of results | slice: 0 : results.length; track item.key ?? item.id; let i = $index) {
+      @if (item.bin && (i === 0 || results[i - 1].bin !== item.bin)) {
+        <!-- show bin header -->
+        <div class="w-full pt-2 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          {{ item.bin }}
+        </div>
+      }
       <div class="w-full p-1 bg-white rounded-md flex-col">
         <div class="w-full space-x-20 flex">
           <div class="text-base font-medium truncate grow">
@@ -23,14 +34,16 @@
         <div>{{ item.summary }}</div>
         <div class="mt-1 italic text-xs text-slate-300 flex flex-row gap-2">
           <div class="grow">{{ item.id }}</div>
-          <div class="">{{ item.count }}</div>
-          <div class="text-right">Visited {{ item.date | date: "medium" }}</div>
+          <div class="">{{ item.visits.length }}</div>
+          <div class="text-right">Visited {{ (item.visited ?? item.visits[item.visits.length - 1]) | date: "medium" }}</div>
         </div>
       </div>
     } @empty {
-      <div class="w-full p-4 bg-white text-center rounded-md">
-        No results for current search text.
-      </div>
+      @if (!isLoading) {
+        <div class="w-full p-4 bg-white text-center rounded-md">
+          No results for current search text.
+        </div>
+      }
     }
   </div>
 </div>
