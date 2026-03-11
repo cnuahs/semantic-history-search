@@ -2,7 +2,7 @@
 
 // 2024-11-03 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
-import settings from "./settings";
+import settings, { SettingValue } from "./settings";
 
 import retriever, { Bookmark } from "./retriever";
 
@@ -39,13 +39,13 @@ settings
           id: "shs-content-script",
           matches: includes
             ? Array.isArray(includes.value)
-              ? includes.value
-              : [includes.value]
+              ? includes.value as string[]
+              : [includes.value as string]
             : ["http://localhost/*"], // must specify atleast one match pattern
           excludeMatches: excludes
             ? Array.isArray(excludes.value)
-              ? excludes.value
-              : [excludes.value]
+              ? excludes.value as string[]
+              : [excludes.value as string]
             : [],
           runAt: "document_idle",
           js: ["content.js"],
@@ -60,16 +60,28 @@ settings
           (changes) => {
             console.log("Settings changed:", changes);
 
-            const newValue = changes.newValue as Record<string, string[]>;
-            const includes = newValue["include-patterns"];
-            const excludes = newValue["exclude-patterns"];
+            const newValue = changes.newValue as Record<string, SettingValue>;
+            var includes = newValue["include-patterns"].value;
+            var excludes = newValue["exclude-patterns"].value;
+
+            includes = Array.isArray(includes)
+              ? includes.filter((pattern): pattern is string => typeof pattern === "string")
+              : typeof includes === "string"
+                ? [includes]
+                : ["http://localhost/*"];
+
+            excludes = Array.isArray(excludes)
+              ? excludes.filter((pattern): pattern is string => typeof pattern === "string")
+              : typeof excludes === "string"
+                ? [excludes]
+                : [];
 
             // update the content script
             updateContentScript([
               {
                 id: "shs-content-script",
-                matches: includes ?? ["http://localhost/*"], // must specify atleast one match pattern
-                excludeMatches: excludes ?? [],
+                matches: includes, // must specify atleast one match pattern
+                excludeMatches: excludes,
                 css: [],
               },
             ]);

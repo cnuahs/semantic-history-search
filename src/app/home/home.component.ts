@@ -3,6 +3,7 @@ import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 
 import { SearchService } from "../search.service";
+import { SettingsService } from "../settings.service";
 
 import { ResultsComponent } from "../results/results.component";
 
@@ -17,28 +18,45 @@ export class HomeComponent implements OnInit {
   results: any[] = [];
   mode: 'history' | 'search' = 'history';
 
-  nrBookmarks: number = 0; // total number of entries in our history
+  nrTotal: number = 0; // total number of entries in our history
 
-  constructor(private searchService: SearchService) {
-    // injects SearchService as this.searchService
-  }
+  historyLimitDays: number = 90; // limit (in days) on history displayed in the history view (configurable via settings)
+
+  isLoading: boolean = true;
+
+  constructor(
+    private searchService: SearchService, // injects SearchService as this.searchService
+    private settingsService: SettingsService, // injects SettingsService as this.settingsService
+  ) {}
 
   ngOnInit() {
-    this.searchService.count().then((n) => {
-      this.nrBookmarks = n;
+    this.settingsService.get('history-limit-days').then((settings) => {
+      const setting = Array.isArray(settings) ? settings[0] : settings;
+      this.historyLimitDays = Number(setting?.value) || 90;
+      this.loadHistory();
     });
-    this.loadHistory();
+    this.searchService.count().then((n) => {
+      this.nrTotal = n;
+    });
   }
 
   private loadHistory() {
+    this.isLoading = true;
+
     this.mode = 'history';
+
+    const limit = this.historyLimitDays * 24 * 60 * 60 * 1000;
     this.searchService
       .search('')
       .then((results) => {
-        this.results = results;
+        this.results = results
+          .filter((item) => item.visited >= Date.now() - limit)
+          .sort((a, b) => b.visited - a.visited);
+        this.isLoading = false;
       })
       .catch((err) => {
         console.error("HomeComponent.loadHistory()", err);
+        this.isLoading = false;
       });
   }
 

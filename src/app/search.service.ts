@@ -77,18 +77,16 @@ export class SearchService {
 
             if (query === '') {
               // history view: one entry per visit, sorted by timestamp
-              const limit = (90 * 24 * 60 * 60 * 1000); // 90 days in ms - make this configurable?
               resolve(
                 mapped
                   .flatMap((item) =>
-                    item.visits.map((timestamp: number) => ({
+                    item.visits.map((timestamp: number, i: number) => ({
                       ...item,
                       visited: timestamp,
                       bin: this.binFn(timestamp),
+                      key: `${item.id}-${timestamp}-${i}`, // a unique key for this visit (for tracking in the UI)
                     }))
                   )
-                  .sort((a, b) => b.visited - a.visited)
-                  .filter((item) => item.visited >= Date.now() - limit)
               );
             } else {
               // semantic search results

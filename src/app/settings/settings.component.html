@@ -55,7 +55,7 @@
                     <div class="relative">
                       <input
                         id="{{ setting.name }}-{{ ix }}"
-                        class="w-full p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
+                        class="w-full p-2 bg-white placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
                         type="text"
                         autocomplete="off"
                         [formControlName]="ix"
@@ -90,8 +90,8 @@
                 </div>
                 <input
                   id="{{ setting.name }}"
-                  class="p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
-                  type="text"
+                  class="p-2 bg-white placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
+                  [type]="isNumber(setting.value) ? 'number' : 'text'"
                   autocomplete="off"
                   formControlName="{{ setting.name }}"
                   name="{{ setting.value }}"
@@ -126,7 +126,7 @@
       <input
         #passphrase
         type="password"
-        class="p-2 placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
+        class="p-2 bg-white placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
         [(ngModel)]="passphrase"
         name="passphrase"
         ngDefaultControl

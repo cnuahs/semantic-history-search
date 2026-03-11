@@ -2,12 +2,15 @@
 
 // 2024-11-24 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
-export type Setting = {
-  name: string;
+export type SettingValue = {
   label: string;
   description: string;
-  value: string | string[];
+  value: string | string[] | number;
   secure: boolean;
+};
+
+export type Setting = SettingValue & {
+  name: string;
 };
 
 // private state
@@ -18,6 +21,7 @@ const _defaults = {
   "pinecone-api-key": {},
   "include-patterns": {},
   "exclude-patterns": {},
+  "history-limit-days": {},
 };
 
 import { validate as _validate } from "./schemas/settings.validator"; // precompiled schema validation function
@@ -77,16 +81,16 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     // console.log("Updated sync cache with settings.", syncCache);
 
     // notify listeners
-    const newVal = newValue as Record<string, unknown>;
-    const oldVal = oldValue as Record<string, unknown>;
-    Object.entries(newVal).forEach(([key, value]) => {
-      if (oldVal && oldVal[key] === value) {
+    const newVal = newValue as Record<string, SettingValue>;
+    const oldVal = oldValue as Record<string, SettingValue>;
+    Object.entries(newVal).forEach(([key, obj]) => {
+      if (oldVal && oldVal[key]?.value === obj?.value) {
         return;
       }
       
       if (callbacks[key]) {
         callbacks[key].forEach((callback) => {
-          callback({ oldValue: oldVal?.[key], newValue: value });
+          callback({ oldValue: oldVal, newValue: newVal });
         });
       }
     });
