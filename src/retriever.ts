@@ -739,6 +739,16 @@ export async function del(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
+// calculate frecency score — exponential decay over visits
+// lambda controls decay rate: 1/30 = visits decay to ~37% relevance after 30 days
+function frecency(visits: number[], lambda: number = 1 / 30): number {
+  const now = Date.now();
+  return visits.reduce((score, visit) => {
+    const daysAgo = (now - visit) / (1000 * 60 * 60 * 24);
+    return score + Math.exp(-lambda * daysAgo);
+  }, 0);
+}
+
 // get bookmarks by id
 export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
   if (id) {
@@ -754,12 +764,16 @@ export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
     });
   }
 
-  // return *all* bookmarks
+  // return *all* bookmarks, sorted by most recent visit
   return new Promise((resolve, _reject) => {
     resolve(
-      Object.entries(dStore.store).map(([_key, value]) =>
-        Bookmark.fromDocument(value),
-      ),
+      Object.entries(dStore.store)
+        .map(([_key, value]) => Bookmark.fromDocument(value))
+        .sort((a, b) => {
+          const aLast = a.visits[a.visits.length - 1] ?? 0;
+          const bLast = b.visits[b.visits.length - 1] ?? 0;
+          return bLast - aLast;
+        }),
     );
   });
 }
