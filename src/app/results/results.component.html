@@ -1,7 +1,12 @@
 <div class="px-2 py-2 flex-col">
   <div class="w-full text-lg text-slate-400 uppercase flex">
-    <span class="grow">Results</span>
-    <span>{{ results.length }}</span>
+    @if (mode === 'history') {
+      <span class="grow">History</span>
+      <span>{{ results.length }} visits · {{ nrUnique }} pages</span>
+    } @else {
+      <span class="grow">Results</span>
+      <span>{{ results.length }}</span>
+    }
   </div>
   <div class="w-full space-y-2 flex flex-col">
     <!-- list each result card -->

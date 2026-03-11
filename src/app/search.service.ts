@@ -79,6 +79,7 @@ export class SearchService {
                     }))
                   )
                   .sort((a, b) => b.visited - a.visited)
+                  .slice(0, 500) // limit to 500 most recent visits for performance
               );
             } else {
               // semantic search results

@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { RouterLink } from "@angular/router";
 
@@ -12,16 +12,38 @@ import { ResultsComponent } from "../results/results.component";
   templateUrl: "./home.component.html",
   styleUrl: "./home.component.css",
 })
-export class HomeComponent {
+export class HomeComponent implements OnInit {
   query: string = "";
   results: any[] = [];
+  mode: 'history' | 'search' = 'history';
 
   constructor(private searchService: SearchService) {
     // injects SearchService as this.searchService
   }
 
+  ngOnInit() {
+    this.loadHistory();
+  }
+
+  private loadHistory() {
+    this.mode = 'history';
+    this.searchService
+      .search('')
+      .then((results) => {
+        this.results = results;
+      })
+      .catch((err) => {
+        console.error("HomeComponent.loadHistory()", err);
+      });
+  }
+
   handleSearch() {
-    // perform the search via the search service
+    if (this.query === '') {
+      this.loadHistory();
+      return;
+    }
+
+    this.mode = 'search';
     this.searchService
       .search(this.query)
       .then((results) => {
@@ -29,7 +51,6 @@ export class HomeComponent {
       })
       .catch((err) => {
         console.error("HomeComponent.handleSearch()", err);
-        // FIXME: display errors/warning as overlays on the popup
       });
   }
 }
