@@ -132,6 +132,17 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       return false; // close the channel;
 
+    case "count":
+      retriever
+        .count()
+        .then((n) => {
+          sendResponse({ type: "result", payload: n });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+      return true;
+
     case "search":
       const query = message.payload;
 

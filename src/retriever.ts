@@ -739,6 +739,11 @@ export async function del(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
+// count bookmarks (i.e., parent documents in dStore)
+export async function count(): Promise<number> {
+  return Object.keys(dStore.store).length;
+}
+
 // calculate frecency score — exponential decay over visits
 // lambda controls decay rate: 1/30 = visits decay to ~37% relevance after 30 days
 function frecency(visits: number[], lambda: number = 1 / 30): number {
@@ -951,4 +956,4 @@ export async function fromJSON(json: string): Promise<void> {
   });
 }
 
-export default { add, del, get, update, search, toJSON, fromJSON };
+export default { add, del, count, get, update, search, toJSON, fromJSON };

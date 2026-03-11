@@ -17,11 +17,16 @@ export class HomeComponent implements OnInit {
   results: any[] = [];
   mode: 'history' | 'search' = 'history';
 
+  nrBookmarks: number = 0; // total number of entries in our history
+
   constructor(private searchService: SearchService) {
     // injects SearchService as this.searchService
   }
 
   ngOnInit() {
+    this.searchService.count().then((n) => {
+      this.nrBookmarks = n;
+    });
     this.loadHistory();
   }
 

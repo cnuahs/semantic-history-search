@@ -23,6 +23,15 @@ export class SearchService {
     chrome.runtime.sendMessage(msg);
   }
 
+  async count(): Promise<number> {
+    return chrome.runtime.sendMessage({ type: "count" }).then((response) => {
+      if (response.type !== "result") {
+        throw new Error("Unexpected response from service worker.");
+      }
+      return response.payload as number;
+    });
+  }
+
   private binFn(timestamp: number): string {
     const now = Date.now();
     const age = now - timestamp;
@@ -67,8 +76,8 @@ export class SearchService {
               }));
 
             if (query === '') {
-              // history view: one entry per visit, sorted by timestamp desc,
-              // with time bucket label
+              // history view: one entry per visit, sorted by timestamp
+              const limit = (90 * 24 * 60 * 60 * 1000); // 90 days in ms - make this configurable?
               resolve(
                 mapped
                   .flatMap((item) =>
@@ -79,7 +88,7 @@ export class SearchService {
                     }))
                   )
                   .sort((a, b) => b.visited - a.visited)
-                  .slice(0, 500) // limit to 500 most recent visits for performance
+                  .filter((item) => item.visited >= Date.now() - limit)
               );
             } else {
               // semantic search results
