@@ -23,6 +23,21 @@ export class SearchService {
     chrome.runtime.sendMessage(msg);
   }
 
+  private binFn(timestamp: number): string {
+    const now = Date.now();
+    const age = now - timestamp;
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+
+    if (age < hour)       return 'Last Hour';
+    if (age < day)        return 'Today';
+    if (age < 2 * day)    return 'Yesterday';
+    if (age < 7 * day)    return 'This Week';
+    if (age < 30 * day)   return 'This Month';
+    return 'Older';
+  }
+
   async search(query: string): Promise<any[]> {
     // console.log('SearchService: Searching for:', query);
 
@@ -38,34 +53,37 @@ export class SearchService {
             // parse response from the service worker
             // console.log('SearchService: Recieved response:', response);
             const results: Bookmark[] = response.payload;
-            resolve(
-              results
-                .map((result: any) =>
-                  result.metadata
-                    ? {
-                        title: result.metadata["title"],
-                        url: result.metadata["href"],
-                        summary: result.pageContent,
-                        visits:
-                          "visits" in result.metadata
-                            ? result.metadata["visits"]
-                            : [],
-                        id: result.id,
-                      }
-                    : null,
-                )
-                .filter(
-                  (
-                    result: any,
-                  ): result is {
-                    title: string;
-                    url: string;
-                    summary: string;
-                    visits: number[];
-                    id: string;
-                  } => result !== null,
-                ),
-            );
+
+            const mapped = results
+              .filter((result: any) => result.metadata)
+              .map((result: any) => ({
+                title: result.metadata["title"],
+                url: result.metadata["href"],
+                summary: result.pageContent,
+                visits: "visits" in result.metadata
+                  ? result.metadata["visits"]
+                  : [],
+                id: result.id,
+              }));
+
+            if (query === '') {
+              // history view: one entry per visit, sorted by timestamp desc,
+              // with time bucket label
+              resolve(
+                mapped
+                  .flatMap((item) =>
+                    item.visits.map((timestamp: number) => ({
+                      ...item,
+                      visited: timestamp,
+                      bin: this.binFn(timestamp),
+                    }))
+                  )
+                  .sort((a, b) => b.visited - a.visited)
+              );
+            } else {
+              // semantic search results
+              resolve(mapped);
+            }
 
             break;
           case "error":
