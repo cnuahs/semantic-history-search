@@ -32,21 +32,6 @@ export class SearchService {
     });
   }
 
-  private binFn(timestamp: number): string {
-    const now = Date.now();
-    const age = now - timestamp;
-    const minute = 60 * 1000;
-    const hour = 60 * minute;
-    const day = 24 * hour;
-
-    if (age < hour)       return 'Last Hour';
-    if (age < day)        return 'Today';
-    if (age < 2 * day)    return 'Yesterday';
-    if (age < 7 * day)    return 'This Week';
-    if (age < 30 * day)   return 'This Month';
-    return 'Older';
-  }
-
   async search(query: string): Promise<any[]> {
     // console.log('SearchService: Searching for:', query);
 
@@ -75,24 +60,9 @@ export class SearchService {
                 id: result.id,
               }));
 
-            if (query === '') {
-              // history view: one entry per visit, sorted by timestamp
-              resolve(
-                mapped
-                  .flatMap((item) =>
-                    item.visits.map((timestamp: number, i: number) => ({
-                      ...item,
-                      visited: timestamp,
-                      bin: this.binFn(timestamp),
-                      key: `${item.id}-${timestamp}-${i}`, // a unique key for this visit (for tracking in the UI)
-                    }))
-                  )
-              );
-            } else {
-              // semantic search results
-              resolve(mapped);
-            }
-
+            // semantic search results
+            resolve(mapped);
+            
             break;
           case "error":
             reject(response.payload as Error); // pass error down the chain...?
