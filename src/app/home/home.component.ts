@@ -24,6 +24,20 @@ export class HomeComponent implements OnInit {
 
   isLoading: boolean = true;
 
+  private binFn(timestamp: number): string {
+    const age = Date.now() - timestamp;
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+
+    if (age < hour)       return 'Last Hour';
+    if (age < day)        return 'Today';
+    if (age < 2 * day)    return 'Yesterday';
+    if (age < 7 * day)    return 'This Week';
+    if (age < 30 * day)   return 'This Month';
+    return 'Older';
+  }
+
   constructor(
     private searchService: SearchService, // injects SearchService as this.searchService
     private settingsService: SettingsService, // injects SettingsService as this.settingsService
@@ -33,40 +47,51 @@ export class HomeComponent implements OnInit {
     this.settingsService.get('history-limit-days').then((settings) => {
       const setting = Array.isArray(settings) ? settings[0] : settings;
       this.historyLimitDays = Number(setting?.value) || 90;
-      this.loadHistory();
+      this.handleSearch(); // fetch history
     });
     this.searchService.count().then((n) => {
       this.nrTotal = n;
     });
   }
 
-  private loadHistory() {
-    this.isLoading = true;
+  private loadHistory(): Promise<void> {
+    const cutoff = Date.now() - (this.historyLimitDays * 24 * 60 * 60 * 1000);
 
-    this.mode = 'history';
-
-    const limit = this.historyLimitDays * 24 * 60 * 60 * 1000;
-    this.searchService
+    return this.searchService
       .search('')
-      .then((results) => {
-        this.results = results
-          .filter((item) => item.visited >= Date.now() - limit)
-          .sort((a, b) => b.visited - a.visited);
-        this.isLoading = false;
+      .then((bookmarks) => {
+        this.results = bookmarks
+          .flatMap((item: any) =>
+            item.visits
+              .filter((timestamp: number) => timestamp >= cutoff)
+              .map((timestamp: number, i: number) => ({
+                ...item,
+                visited: timestamp,
+                bin: this.binFn(timestamp),
+                key: `${item.id}-${timestamp}-${i}`,
+              }))
+          )
+          .sort((a: any, b: any) => b.visited - a.visited);
       })
       .catch((err) => {
         console.error("HomeComponent.loadHistory()", err);
-        this.isLoading = false;
       });
   }
 
   handleSearch() {
+    this.isLoading = true;
+
+    this.results = [];  
+
+    this.mode = this.query === '' ? 'history' : 'search';
+
+    const done = () => { this.isLoading = false; };
+
     if (this.query === '') {
-      this.loadHistory();
+      this.loadHistory().finally(done);
       return;
     }
 
-    this.mode = 'search';
     this.searchService
       .search(this.query)
       .then((results) => {
@@ -74,6 +99,8 @@ export class HomeComponent implements OnInit {
       })
       .catch((err) => {
         console.error("HomeComponent.handleSearch()", err);
-      });
+      })
+      .finally(done);
   }
+
 }
