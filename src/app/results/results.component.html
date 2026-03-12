@@ -22,7 +22,7 @@
         <div class="w-full p-1 bg-white rounded-md flex-col">
           <div class="w-full space-x-20 flex">
             <div class="text-base font-medium truncate grow">
-              <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+              <a href="{{ item.url }}" target="_blank">{{ item.title || item.url }}</a>
             </div>
             <div class="justify-items-end" (click)="delResult(item.id)">
               <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/trash.svg -->
