@@ -744,16 +744,6 @@ export async function count(): Promise<number> {
   return Object.keys(dStore.store).length;
 }
 
-// calculate frecency score — exponential decay over visits
-// lambda controls decay rate: 1/30 = visits decay to ~37% relevance after 30 days
-function frecency(visits: number[], lambda: number = 1 / 30): number {
-  const now = Date.now();
-  return visits.reduce((score, visit) => {
-    const daysAgo = (now - visit) / (1000 * 60 * 60 * 24);
-    return score + Math.exp(-lambda * daysAgo);
-  }, 0);
-}
-
 // get bookmarks by id
 export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
   if (id) {

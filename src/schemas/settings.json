@@ -211,6 +211,38 @@
         "value",
         "secure"
       ]
+    },
+    "purge-threshold": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Purge Threshold"
+        },
+        "description": {
+          "type": "string",
+          "default": "Entries with a frecency score below this threshold are flagged for purging."
+        },
+        "value": {
+          "type": "number",
+          "default": 0.1
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure",
+        "hidden"
+      ]
     }
   }
 }

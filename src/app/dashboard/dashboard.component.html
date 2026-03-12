@@ -1,0 +1,113 @@
+<div class="h-full flex flex-col">
+  <div class="w-full h-10 p-1 px-2 space-x-2 bg-cyan-500 flex flex-row">
+    <div>
+      <img src="icon128.png" class="h-full" />
+    </div>
+    <div class="justify-items-center grow">
+      <div class="font-sans text-lg text-white">Dashboard</div>
+    </div>
+    <div>
+      <a routerLink="/" routerLinkActive="active" ariaCurrentWhenActive="page">
+        <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/home.svg -->
+        <!-- prettier-ignore -->
+        <svg viewBox="0 0 24 24" class="h-full py-0.5 fill-none stroke-current text-white stroke-1">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow overflow-y-auto">
+    @if (isLoading) {
+      <div class="w-full p-4 text-center text-slate-300">Loading...</div>
+    } @else {
+      <!-- summary stats -->
+      <div class="w-full px-2 py-2 mb-2 bg-white rounded-md flex flex-row gap-6">
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ nrBookmarks }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Pages</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ nrVisits }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Visits</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ oldestVisit | date: "MMM y" }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Since</span>
+        </div>
+      </div>
+
+      <!-- histogram -->
+      <div class="w-full px-2 py-2 bg-white rounded-md flex flex-col">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Frecency Distribution</div>
+        <svg width="100%" [attr.viewBox]="'0 0 720 200'" preserveAspectRatio="xMidYMid meet">
+          <!-- bars -->
+          @for (bin of bins; track bin.x0; let i = $index) {
+            <rect
+              [attr.x]="i * (720 / nrBins)"
+              [attr.y]="200 - (bin.count / maxBinCount) * 180"
+              [attr.width]="(720 / nrBins) - 1"
+              [attr.height]="(bin.count / maxBinCount) * 180"
+              [attr.fill]="bin.x0 < purgeThreshold ? '#f87171' : '#22d3ee'"
+            />
+          }
+          <!-- threshold marker -->
+          <line
+            [attr.x1]="thresholdX"
+            y1="0"
+            [attr.x2]="thresholdX"
+            y2="200"
+            stroke="#ef4444"
+            stroke-width="1.5"
+            stroke-dasharray="4,2"
+          />
+        </svg>
+
+        <!-- x axis labels -->
+        <div class="w-full flex flex-row justify-between text-xs text-slate-300 mt-1">
+          <span>{{ minScore | number: '1.1-1' }}</span>
+          <span>← frecency score (log scale) →</span>
+          <span>{{ maxScore | number: '1.1-1' }}</span>
+        </div>
+
+        <!-- threshold control -->
+        <div class="mt-3 flex flex-col gap-1">
+          <div class="flex flex-row justify-between text-xs text-slate-400">
+            <span>Purge threshold</span>
+            <span class="text-red-400 font-medium">{{ nrFlagged }} pages flagged</span>
+          </div>
+          <input
+            type="range"
+            class="w-full accent-cyan-500"
+            [min]="logMinScore"
+            [max]="logMaxScore"
+            [step]="(logMaxScore - logMinScore) / 200"
+            [(ngModel)]="logThreshold"
+          />
+          <div class="flex flex-row justify-between text-xs text-slate-300">
+            <span>{{ minScore | number: '1.1-1' }}</span>
+            <span class="text-slate-500">{{ purgeThreshold | number: '1.3-3' }}</span>
+            <span>{{ maxScore | number: '1.1-1' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- purge button -->
+      <div class="mt-2 flex flex-row justify-end gap-2">
+        <button
+          class="px-4 py-2 bg-slate-200 text-slate-500 rounded-md text-sm"
+          (click)="savePurgeThreshold()"
+        >
+          Save Threshold
+        </button>
+        <button
+          class="px-4 py-2 bg-red-400 text-white rounded-md text-sm disabled:opacity-50"
+          [disabled]="nrFlagged === 0"
+          (click)="purge()"
+        >
+          Purge {{ nrFlagged }} pages
+        </button>
+      </div>
+    }
+  </div>
+</div>

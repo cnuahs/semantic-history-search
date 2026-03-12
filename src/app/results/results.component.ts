@@ -14,8 +14,6 @@ export class ResultsComponent {
   @Input() results: any[] = []; // TODO: change any[] to the Bookmark interface...?
   @Input() mode: 'history' | 'search' = 'history';
 
-  @Input() nrTotal: number = 0; // total pages in the database
-
   @Input() isLoading: boolean = false;
 
   get nrUnique(): number { // number of unique pages in this.results

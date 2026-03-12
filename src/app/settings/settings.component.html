@@ -22,7 +22,9 @@
     <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <ul>
+          <!-- @for (setting of settings; track setting.label) { -->
           @for (setting of settings; track setting.label) {
+            @if (!setting.hidden) {
             <li class="flex flex-col my-2">
               <span class="font-medium">{{ setting.label }}</span>
               @if (isArray(setting.value)) {
@@ -100,6 +102,7 @@
                 />
               }
             </li>
+            }
           }
         </ul>
         <!-- <div class="flex flex-col justify-end grow"> -->

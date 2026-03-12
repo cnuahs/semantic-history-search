@@ -7,6 +7,7 @@ export type SettingValue = {
   description: string;
   value: string | string[] | number;
   secure: boolean;
+  hidden: boolean;
 };
 
 export type Setting = SettingValue & {
@@ -22,6 +23,7 @@ const _defaults = {
   "include-patterns": {},
   "exclude-patterns": {},
   "history-limit-days": {},
+  "purge-threshold": {},
 };
 
 import { validate as _validate } from "./schemas/settings.validator"; // precompiled schema validation function
