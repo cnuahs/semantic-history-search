@@ -15,6 +15,8 @@ import * as d3 from 'd3';
   styleUrl: './dashboard.component.css',
 })
 export class DashboardComponent implements OnInit, OnDestroy {
+  version: string = '';
+
   bookmarks: any[] = [];
 
   // summary stats
@@ -75,6 +77,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.version = chrome.runtime.getManifest().version;
+    
     Promise.all([
       this.settingsService.get('purge-threshold'),
       this.settingsService.get('frecency-half-life'),
