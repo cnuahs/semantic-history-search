@@ -46,36 +46,7 @@
       <!-- histogram -->
       <div class="w-full px-2 py-2 bg-white rounded-md flex flex-col">
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Frecency Distribution</div>
-        <svg width="100%" [attr.viewBox]="'0 0 720 200'" preserveAspectRatio="xMidYMid meet">
-          <!-- bars -->
-          @for (bin of bins; track bin.x0; let i = $index) {
-            <rect
-              [attr.x]="i * (720 / nrBins)"
-              [attr.y]="200 - (bin.count / maxBinCount) * 180"
-              [attr.width]="(720 / nrBins) - 1"
-              [attr.height]="(bin.count / maxBinCount) * 180"
-              [attr.fill]="bin.x0 < purgeThreshold ? '#f87171' : '#22d3ee'"
-            />
-          }
-          <!-- threshold marker -->
-          <line
-            [attr.x1]="thresholdX"
-            y1="0"
-            [attr.x2]="thresholdX"
-            y2="200"
-            stroke="#ef4444"
-            stroke-width="1.5"
-            stroke-dasharray="4,2"
-          />
-        </svg>
-
-        <!-- x axis labels -->
-        <div class="w-full flex flex-row justify-between text-xs text-slate-300 mt-1">
-          <span>{{ minScore | number: '1.1-1' }}</span>
-          <span>← frecency score (log scale) →</span>
-          <span>{{ maxScore | number: '1.1-1' }}</span>
-        </div>
-
+        <svg #histogram width="100%" height="160"></svg>
 
         <!-- half-life control -->
         <div class="mt-3 flex flex-col gap-1">
@@ -106,29 +77,30 @@
           </div>
           <input
             type="range"
-            class="w-full accent-cyan-500"
+            class="w-full accent-red-400"
             [min]="logMinScore"
             [max]="logMaxScore"
             [step]="(logMaxScore - logMinScore) / 200"
             [(ngModel)]="logThreshold"
+            (ngModelChange)="buildHistogram()"
           />
           <div class="flex flex-row justify-between text-xs text-slate-300">
-            <span>{{ minScore | number: '1.1-1' }}</span>
-            <span class="text-slate-500">{{ purgeThreshold | number: '1.3-3' }}</span>
-            <span>{{ maxScore | number: '1.1-1' }}</span>
+            <span></span>
+            <span class="text-slate-500">threshold: {{ purgeThreshold | number: '1.3-3' }}</span>
+            <span></span>
           </div>
         </div>
-      </div>
 
-      <!-- purge button -->
-      <div class="mt-2 flex flex-row justify-end gap-2">
-        <button
-          class="px-4 py-2 bg-red-400 text-white rounded-md text-sm disabled:opacity-50"
-          [disabled]="nrFlagged === 0"
-          (click)="purge()"
-        >
-          Purge {{ nrFlagged }} pages
-        </button>
+        <!-- purge button -->
+        <div class="mt-2 flex flex-row justify-end gap-2">
+            <button
+            class="px-4 py-2 bg-red-400 text-white rounded-md text-sm disabled:opacity-50"
+            [disabled]="nrFlagged === 0"
+            (click)="purge()"
+            >
+            Purge {{ nrFlagged }} pages
+            </button>
+        </div>
       </div>
     }
   </div>

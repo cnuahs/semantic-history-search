@@ -35,6 +35,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  private _histogramEl!: ElementRef;
+
+  @ViewChild('histogram') set histogramEl(el: ElementRef) {
+    if (el) {
+      this._histogramEl = el;
+      if (this.scores.length > 0) {
+        this.buildHistogram();
+      }
+    }
+  }
+
   // frecency
   halfLifeDays: number = 30;
   scores: { id: string, score: number }[] = [];
@@ -47,30 +58,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // histogram
-  bins: { x0: number, x1: number, count: number }[] = [];
-  readonly nrBins: number = 40;
-
-  get maxBinCount(): number {
-    return Math.max(...this.bins.map(b => b.count));
-  }
-
-  get minScore(): number {
-    return Math.min(...this.scores.map(s => s.score));
-  }
-
-  get maxScore(): number {
-    return Math.max(...this.scores.map(s => s.score));
-  }
-
-  get logMinScore(): number { return Math.log10(Math.max(this.minScore, 1e-6)); }
-  get logMaxScore(): number { return Math.log10(this.maxScore); }
 
   get logThreshold(): number { return Math.log10(Math.max(this.purgeThreshold, 1e-6)); }
   set logThreshold(val: number) { this.purgeThreshold = Math.pow(10, val); }
 
-  get thresholdX(): number {
-    return ((this.logThreshold - this.logMinScore) / (this.logMaxScore - this.logMinScore)) * 720;
-  }
+  get minScore(): number { return Math.min(...this.scores.map(s => s.score)); }
+  get maxScore(): number { return Math.max(...this.scores.map(s => s.score)); }
+  get logMinScore(): number { return Math.round(Math.log10(Math.max(this.minScore, 1e-6)) * 1e3) / 1e3; } // rounded to 3 decimal places
+  get logMaxScore(): number { return Math.round(Math.log10(this.maxScore) * 1e3) / 1e3; } // round to 3 decimal places
 
   isLoading: boolean = true;
 
@@ -175,26 +170,89 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   buildHistogram() {
-    this.computeScores()
+    this.computeScores();
 
-    const logMin = this.logMinScore;
-    const logMax = this.logMaxScore;
-    const binWidth = (logMax - logMin) / this.nrBins;
+    if (!this._histogramEl) return;
 
-    this.bins = Array.from({ length: this.nrBins }, (_, i) => ({
-      x0: Math.pow(10, logMin + i * binWidth),
-      x1: Math.pow(10, logMin + (i + 1) * binWidth),
-      count: 0,
-    }));
+    const el = this._histogramEl.nativeElement;
+    const margin = { top: 10, right: 10, bottom: 20, left: 40 };
+    const width = el.clientWidth - margin.left - margin.right;
+    const height = 160 - margin.top - margin.bottom;
 
-    this.scores.forEach(({ score }) => {
-      const logScore = Math.log10(Math.max(score, 1e-6));
-      const i = Math.min(
-        Math.floor((logScore - logMin) / binWidth),
-        this.nrBins - 1
-      );
-      this.bins[i].count++;
-    });
+    d3.select(el).selectAll('*').remove();
+
+    const svg = d3.select(el)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const scores = this.scores.map(s => s.score);
+    const minScore = Math.min(...scores);
+    const maxScore = Math.max(...scores);
+
+    // log scale
+    const xScale = d3.scaleLog()
+      .domain([Math.max(minScore, 1e-6), maxScore])
+      .range([0, width]);
+
+    // bin the scores
+    const thresholds = d3.range(40).map(i =>
+      Math.pow(10, Math.log10(Math.max(minScore, 1e-6)) + i * (Math.log10(maxScore) - Math.log10(Math.max(minScore, 1e-6))) / 40)
+    );
+
+    const binner = d3.bin()
+      .domain([Math.max(minScore, 1e-6), maxScore])
+      .thresholds(thresholds);
+
+    const bins = binner(scores);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(bins, b => b.length) as number])
+      .range([height, 0]);
+
+    // axes — ticks at powers of 10 within the domain
+    const tickValues = d3.range(
+      Math.floor(this.logMinScore),
+      Math.ceil(this.logMaxScore) + 1
+    ).map(i => Math.pow(10, i));
+
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(xScale)
+        .tickValues(tickValues)
+        .tickFormat(d => {
+          const v = d as number;
+          if (v >= 1) return d3.format('.0f')(v);
+          if (v >= 0.1) return d3.format('.1f')(v);
+          if (v >= 0.01) return d3.format('.2f')(v);
+          return d3.format('.0e')(v);
+        })
+      )
+      .attr('color', '#cbd5e1');
+
+    svg.append('g')
+      .call(d3.axisLeft(yScale).ticks(4))
+      .attr('color', '#cbd5e1');
+
+    // bars
+    svg.selectAll('rect')
+      .data(bins)
+      .enter()
+      .append('rect')
+      .attr('x', b => xScale(Math.max(b.x0 as number, 1e-6)))
+      .attr('width', b => Math.max(0, xScale(b.x1 as number) - xScale(Math.max(b.x0 as number, 1e-6)) - 1))
+      .attr('y', b => yScale(b.length))
+      .attr('height', b => height - yScale(b.length))
+      .attr('fill', b => (b.x0 as number) < this.purgeThreshold ? '#f87171' : '#22d3ee');
+
+    // threshold marker
+    svg.append('line')
+      .attr('x1', xScale(Math.max(this.purgeThreshold, 1e-6)))
+      .attr('x2', xScale(Math.max(this.purgeThreshold, 1e-6)))
+      .attr('y1', 0)
+      .attr('y2', height)
+      .attr('stroke', '#ef4444')
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,2');
   }
 
   purge() {
