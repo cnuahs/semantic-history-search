@@ -739,11 +739,6 @@ export async function del(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
-// count bookmarks (i.e., parent documents in dStore)
-export async function count(): Promise<number> {
-  return Object.keys(dStore.store).length;
-}
-
 // get bookmarks by id
 export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
   if (id) {
@@ -946,4 +941,4 @@ export async function fromJSON(json: string): Promise<void> {
   });
 }
 
-export default { add, del, count, get, update, search, toJSON, fromJSON };
+export default { add, del, get, update, search, toJSON, fromJSON };
