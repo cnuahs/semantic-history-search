@@ -70,6 +70,28 @@
           <span>{{ maxScore | number: '1.1-1' }}</span>
         </div>
 
+
+        <!-- half-life control -->
+        <div class="mt-3 flex flex-col gap-1">
+          <div class="flex flex-row justify-between text-xs text-slate-400 mb-1">
+            <span>Half-life</span>
+            <span class="text-cyan-500 font-medium">{{ halfLifeDays | number: '1.0-0' }} days</span>
+          </div>
+          <input
+            type="range"
+            class="w-full accent-cyan-500"
+            min="7"
+            max="365"
+            step="1"
+            [(ngModel)]="halfLifeDays"
+            (ngModelChange)="buildHistogram()"
+          />
+          <div class="flex flex-row justify-between text-xs text-slate-300 mt-1">
+            <span>7 days</span>
+            <span>365 days</span>
+          </div>
+        </div>
+
         <!-- threshold control -->
         <div class="mt-3 flex flex-col gap-1">
           <div class="flex flex-row justify-between text-xs text-slate-400">
@@ -94,12 +116,6 @@
 
       <!-- purge button -->
       <div class="mt-2 flex flex-row justify-end gap-2">
-        <button
-          class="px-4 py-2 bg-slate-200 text-slate-500 rounded-md text-sm"
-          (click)="savePurgeThreshold()"
-        >
-          Save Threshold
-        </button>
         <button
           class="px-4 py-2 bg-red-400 text-white rounded-md text-sm disabled:opacity-50"
           [disabled]="nrFlagged === 0"

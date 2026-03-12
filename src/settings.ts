@@ -23,6 +23,7 @@ const _defaults = {
   "include-patterns": {},
   "exclude-patterns": {},
   "history-limit-days": {},
+  "frecency-half-life": {},
   "purge-threshold": {},
 };
 
