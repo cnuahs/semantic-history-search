@@ -1,0 +1,108 @@
+<div class="h-full flex flex-col">
+  <div class="w-full h-10 p-1 px-2 space-x-2 bg-cyan-500 flex flex-row">
+    <div>
+      <img src="icon128.png" class="h-full" />
+    </div>
+    <div class="justify-items-center grow">
+      <div class="font-sans text-lg text-white">Dashboard</div>
+    </div>
+    <div>
+      <a routerLink="/" routerLinkActive="active" ariaCurrentWhenActive="page">
+        <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/home.svg -->
+        <!-- prettier-ignore -->
+        <svg viewBox="0 0 24 24" class="h-full py-0.5 fill-none stroke-current text-white stroke-1">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow overflow-y-auto">
+    @if (isLoading) {
+      <div class="w-full p-4 text-center text-slate-300">Loading...</div>
+    } @else {
+      <!-- summary stats -->
+      <div class="w-full px-2 py-2 mb-2 bg-white rounded-md flex flex-row gap-6">
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ nrBookmarks }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Pages</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ nrVisits }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Visits</span>
+        </div>
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ oldestVisit | date: "MMM y" }}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Since</span>
+        </div>
+      </div>
+
+      <!-- growth curve -->
+      <div class="w-full px-2 py-2 mb-2 bg-white rounded-md flex flex-col">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Database Growth</div>
+        <svg #growthCurve width="100%" height="160"></svg>
+      </div>
+
+      <!-- histogram -->
+      <div class="w-full px-2 py-2 bg-white rounded-md flex flex-col">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Frecency Distribution</div>
+        <svg #histogram width="100%" height="160"></svg>
+
+        <!-- half-life control -->
+        <div class="mt-3 flex flex-col gap-1">
+          <div class="flex flex-row justify-between text-xs text-slate-400 mb-1">
+            <span>Half-life</span>
+            <span class="text-cyan-500 font-medium">{{ halfLifeDays | number: '1.0-0' }} days</span>
+          </div>
+          <input
+            type="range"
+            class="w-full accent-cyan-500"
+            min="7"
+            max="365"
+            step="1"
+            [(ngModel)]="halfLifeDays"
+            (ngModelChange)="buildHistogram()"
+          />
+          <div class="flex flex-row justify-between text-xs text-slate-300 mt-1">
+            <span>7 days</span>
+            <span>365 days</span>
+          </div>
+        </div>
+
+        <!-- threshold control -->
+        <div class="mt-3 flex flex-col gap-1">
+          <div class="flex flex-row justify-between text-xs text-slate-400">
+            <span>Purge threshold</span>
+            <span class="text-red-400 font-medium">{{ nrFlagged }} pages flagged</span>
+          </div>
+          <input
+            type="range"
+            class="w-full accent-red-400"
+            [min]="logMinScore"
+            [max]="logMaxScore"
+            [step]="(logMaxScore - logMinScore) / 200"
+            [(ngModel)]="logThreshold"
+            (ngModelChange)="buildHistogram()"
+          />
+          <div class="flex flex-row justify-between text-xs text-slate-300">
+            <span></span>
+            <span class="text-slate-500">threshold: {{ purgeThreshold | number: '1.3-3' }}</span>
+            <span></span>
+          </div>
+        </div>
+
+        <!-- purge button -->
+        <div class="mt-2 flex flex-row justify-end gap-2">
+            <button
+            class="px-4 py-2 bg-red-400 text-white rounded-md text-sm disabled:opacity-50"
+            [disabled]="nrFlagged === 0"
+            (click)="purge()"
+            >
+            Purge {{ nrFlagged }} pages
+            </button>
+        </div>
+      </div>
+    }
+    <div class="w-full pt-1 text-center text-xs text-slate-400">Version: {{ version }}</div>
+  </div>
+</div>

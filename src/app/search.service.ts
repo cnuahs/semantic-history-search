@@ -23,15 +23,6 @@ export class SearchService {
     chrome.runtime.sendMessage(msg);
   }
 
-  async count(): Promise<number> {
-    return chrome.runtime.sendMessage({ type: "count" }).then((response) => {
-      if (response.type !== "result") {
-        throw new Error("Unexpected response from service worker.");
-      }
-      return response.payload as number;
-    });
-  }
-
   async search(query: string): Promise<any[]> {
     // console.log('SearchService: Searching for:', query);
 

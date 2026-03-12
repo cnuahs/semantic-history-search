@@ -211,6 +211,70 @@
         "value",
         "secure"
       ]
+    },
+    "frecency-half-life": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Frecency Half-life (days)"
+        },
+        "description": {
+          "type": "string",
+          "default": "Number of days after which a visit contributes half as much to the frecency score."
+        },
+        "value": {
+          "type": "number",
+          "default": 30
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure",
+        "hidden"
+      ]
+    },
+    "purge-threshold": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Purge Threshold"
+        },
+        "description": {
+          "type": "string",
+          "default": "Entries with a frecency score below this threshold are flagged for purging."
+        },
+        "value": {
+          "type": "number",
+          "default": 0.1
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        },
+        "hidden": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure",
+        "hidden"
+      ]
     }
   }
 }
