@@ -40,23 +40,7 @@
       <!-- growth curve -->
       <div class="w-full px-2 py-2 mb-2 bg-white rounded-md flex flex-col">
         <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Database Growth</div>
-        <svg width="100%" [attr.viewBox]="'0 0 720 160'" preserveAspectRatio="xMidYMid meet">
-          <polyline
-            [attr.points]="pts"
-            fill="none"
-            stroke="#22d3ee"
-            stroke-width="1.5"
-          />
-        </svg>
-        <!-- x axis labels -->
-        <div class="relative w-full h-4 mt-1">
-          @for (label of growthLabels; track label.x) {
-            <span
-              class="absolute text-xs text-slate-300 -translate-x-1/2"
-              [style.left]="label.x + '%'"
-            >{{ label.label }}</span>
-          }
-        </div>
+        <svg #growthCurve width="100%" height="160"></svg>
       </div>
 
       <!-- histogram -->

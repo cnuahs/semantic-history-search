@@ -1,10 +1,12 @@
-import { Component, OnInit, OnDestroy } from "@angular/core";
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from "@angular/core";
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from "@angular/router";
 import { DatePipe, DecimalPipe } from "@angular/common";
 
 import { SearchService } from "../search.service";
 import { SettingsService } from "../settings.service";
+
+import * as d3 from 'd3';
 
 @Component({
   selector: 'app-dashboard',
@@ -22,11 +24,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   // growth
   growth: { t: number, n: number }[] = [];
+  private _growthCurveEl!: ElementRef;
 
-  // growth curve
-  pts: string = '';
-  growthLabels: { label: string, x: number }[] = [];
-
+  @ViewChild('growthCurve') set growthCurveEl(el: ElementRef) {
+    if (el) {
+      this._growthCurveEl = el;
+      if (this.growth.length > 0) {
+        this.buildGrowthCurve();
+      }
+    }
+  }
 
   // frecency
   halfLifeDays: number = 30;
@@ -105,27 +112,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
   buildGrowthCurve() {
     this.computeGrowth();
 
-    const start = this.growth[0].t;
-    const end = Date.now();
-    const range = end - start;
-    const height = 160;
-    const width = 720;
+    if (!this._growthCurveEl) return;
+    const el = this._growthCurveEl.nativeElement;
 
-    this.pts = this.growth
-      .map(p => {
-        const x = ((p.t - start) / range) * width;
-        const y = height - (p.n / this.nrBookmarks) * (height - 20);
-        return `${x},${y}`;
-      })
-      .join(' ');
+    const margin = { top: 10, right: 10, bottom: 20, left: 40 };
+    const width = el.clientWidth - margin.left - margin.right;
+    const height = 160 - margin.top - margin.bottom;
 
-    // ~5 evenly spaced x-axis labels
-    this.growthLabels = Array.from({ length: 5 }, (_, i) => {
-      const t = start + (i / 4) * range;
-      const x = (i / 4) * 100; // percentage
-      const label = new Date(t).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      return { label, x };
-    });
+    // clear previous render
+    d3.select(el).selectAll('*').remove();
+
+    const svg = d3.select(el)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // scales
+    const xScale = d3.scaleTime()
+      .domain([new Date(this.growth[0].t), new Date()])
+      .range([0, width]);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, this.nrBookmarks])
+      .range([height, 0]);
+
+    // axes
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(xScale).ticks(5))
+      .attr('color', '#cbd5e1'); // slate-300
+
+    svg.append('g')
+      .call(d3.axisLeft(yScale).ticks(4))
+      .attr('color', '#cbd5e1');
+
+    // line
+    const line = d3.line<{ t: number, n: number }>()
+      .x(p => xScale(new Date(p.t)))
+      .y(p => yScale(p.n));
+
+    svg.append('path')
+      .datum(this.growth)
+      .attr('fill', 'none')
+      .attr('stroke', '#22d3ee')
+      .attr('stroke-width', 1.5)
+      .attr('d', line);
   }
 
   private frecency(visits: number[]): number {
