@@ -20,6 +20,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get nrVisits(): number { return this.bookmarks.reduce((n, b) => n + b.visits.length, 0); }
   get oldestVisit(): number { return Math.min(...this.bookmarks.flatMap((b: any) => b.visits)); }
 
+  // growth
+  growth: { t: number, n: number }[] = [];
+
+  // growth curve
+  pts: string = '';
+  growthLabels: { label: string, x: number }[] = [];
+
+
   // frecency
   halfLifeDays: number = 30;
   scores: { id: string, score: number }[] = [];
@@ -78,6 +86,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return this.searchService.search('');
     }).then((bookmarks: any[]) => {
       this.bookmarks = bookmarks;
+      this.buildGrowthCurve();
       this.buildHistogram();
       this.isLoading = false;
     });
@@ -85,6 +94,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.saveSettings();
+  }
+
+  computeGrowth() {
+    this.growth = [...this.bookmarks]
+      .sort((a, b) => a.visits[0] - b.visits[0])
+      .map((b, i) => ({ t: b.visits[0], n: i + 1 }));
+  }
+
+  buildGrowthCurve() {
+    this.computeGrowth();
+
+    const start = this.growth[0].t;
+    const end = Date.now();
+    const range = end - start;
+    const height = 160;
+    const width = 720;
+
+    this.pts = this.growth
+      .map(p => {
+        const x = ((p.t - start) / range) * width;
+        const y = height - (p.n / this.nrBookmarks) * (height - 20);
+        return `${x},${y}`;
+      })
+      .join(' ');
+
+    // ~5 evenly spaced x-axis labels
+    this.growthLabels = Array.from({ length: 5 }, (_, i) => {
+      const t = start + (i / 4) * range;
+      const x = (i / 4) * 100; // percentage
+      const label = new Date(t).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      return { label, x };
+    });
   }
 
   private frecency(visits: number[]): number {
@@ -131,6 +172,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     toDelete.forEach(({ id }) => this.searchService.del(id));
     const deleteIds = new Set(toDelete.map(s => s.id));
     this.bookmarks = this.bookmarks.filter((b: any) => !deleteIds.has(b.id));
+    this.buildGrowthCurve();
     this.buildHistogram();
   }
 
