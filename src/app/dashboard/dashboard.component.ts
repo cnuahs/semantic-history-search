@@ -120,13 +120,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .map((b, i) => ({ t: b.visits[0], n: i + 1 }));
   }
 
-  private kde(visits: number[], bandwidth: number, points: number[]): number[] {
+  private kde(visits: number[], bandwidth: number, points: number[], normalise: boolean = true): number[] {
     const values = points.map(t =>
       visits.reduce((sum, v) => {
         const z = (t - v) / bandwidth;
         return sum + Math.exp(-0.5 * z * z);
       }, 0)
     );
+    if (!normalise) return values;
     const max = Math.max(...values);
     return max > 0 ? values.map(v => v / max) : values;
   }
@@ -145,7 +146,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const colours = {
       growthLine: '#22d3ee',   // cyan-400
       kdeAll: '#f1f5f9',       // slate-100
-      kdeFirst: '#e2e8f0',     // slate-200
+      // kdeFirst: '#e2e8f0',     // slate-200
+      kdeFirst: '#94a3b8',     // slate-400 (for stroked variant)
       axes: '#cbd5e1',         // slate-300
     };
 
@@ -177,12 +179,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // all visits
     const allVisits = this.bookmarks.flatMap((b: any) => b.visits);
-    const kdeAll = this.kde(allVisits, bandwidth, points);
-    // const kdeAll = this.kde(allVisits, bandwidth, points).map(v => v * 4);
+    var kdeAll = this.kde(allVisits, bandwidth, points, false); // unnormalized
 
     // first visits only
     const firstVisits = this.bookmarks.map((b: any) => b.visits[0]);
-    const kdeFirst = this.kde(firstVisits, bandwidth, points);
+    var kdeFirst = this.kde(firstVisits, bandwidth, points, false); // unnormalized
+
+    // normalise both, preserving relative scale
+    const max = Math.max(...kdeAll);
+    kdeAll = kdeAll.map(v => v / max);
+    kdeFirst = kdeFirst.map(v => v / max);
 
     // kde height — 20% of chart height
     const kdeHeight = height * 0.2;
@@ -202,10 +208,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .attr('d', kdeArea);
 
     // draw first-visits kde (slightly darker gray)
+    // svg.append('path')
+    //   .datum(kdeFirst)
+    //   .attr('fill', colours.kdeFirst)
+    //   .attr('stroke', 'none')
+    //   .attr('d', kdeArea);
+
+    // draw first-visits kde (stroke only)
     svg.append('path')
       .datum(kdeFirst)
-      .attr('fill', colours.kdeFirst)
-      .attr('stroke', 'none')
+      .attr('fill', 'none')
+      .attr('stroke', colours.kdeFirst)
+      .attr('stroke-width', 1)
       .attr('d', kdeArea);
 
     // axes
