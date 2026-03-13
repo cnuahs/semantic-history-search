@@ -26,6 +26,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   vectorCount: number = 0; // vector database/store size
 
+  storageSizeMB: number = 0;
+
   // growth
   growth: { t: number, n: number }[] = [];
   private _growthCurveEl!: ElementRef;
@@ -101,6 +103,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.searchService.indexStats().then((stats) => {
       this.vectorCount = stats.vectorCount;
+    });
+
+    navigator.storage.estimate().then((estimate) => {
+      this.storageSizeMB = (estimate.usage ?? 0) / (1024 * 1024);
     });
   }
 

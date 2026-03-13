@@ -39,6 +39,10 @@
           <span class="text-2xl font-semibold text-cyan-500">{{ vectorCount || '--' }}</span>
           <span class="text-xs text-slate-400 uppercase tracking-wide">Vectors</span>
         </div>
+        <div class="flex flex-col items-center">
+          <span class="text-2xl font-semibold text-cyan-500">{{ storageSizeMB | number: '1.0-0' }} MB</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wide">Storage</span>
+        </div>
       </div>
 
       <!-- growth curve -->
