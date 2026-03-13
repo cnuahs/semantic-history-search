@@ -24,6 +24,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get nrVisits(): number { return this.bookmarks.reduce((n, b) => n + b.visits.length, 0); }
   get oldestVisit(): number { return Math.min(...this.bookmarks.flatMap((b: any) => b.visits)); }
 
+  vectorCount: number = 0; // vector database/store size
+
   // growth
   growth: { t: number, n: number }[] = [];
   private _growthCurveEl!: ElementRef;
@@ -78,7 +80,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.version = chrome.runtime.getManifest().version;
-    
+
     Promise.all([
       this.settingsService.get('purge-threshold'),
       this.settingsService.get('frecency-half-life'),
@@ -95,6 +97,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.buildGrowthCurve();
       this.buildHistogram();
       this.isLoading = false;
+    });
+
+    this.searchService.indexStats().then((stats) => {
+      this.vectorCount = stats.vectorCount;
     });
   }
 

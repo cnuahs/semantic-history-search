@@ -100,5 +100,17 @@ export class SearchService {
     return sendChunkedMessage(msg);
   }
 
+  async indexStats(): Promise<{ vectorCount: number }> {
+    const msg = { type: "index-stats", payload: {} };
+
+    return chrome.runtime.sendMessage(msg).then((response) => {
+      if (!response || response.type !== "result") {
+        console.warn("indexStats: unexpected response", response);
+        return { vectorCount: 0 };
+      }
+      return response.payload as { vectorCount: number };
+    });
+  }
+ 
   constructor() {}
 }

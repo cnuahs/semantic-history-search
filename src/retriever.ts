@@ -941,4 +941,18 @@ export async function fromJSON(json: string): Promise<void> {
   });
 }
 
-export default { add, del, get, update, search, toJSON, fromJSON };
+// report vector store/index statistics (e.g., number of vectors, index size, etc.)
+export async function indexStats(): Promise<{ vectorCount: number }> {
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  const vStore = retriever.vectorstore as PineconeStore;
+  const index = vStore.pineconeIndex;
+  const stats = await index.describeIndexStats();
+  console.log("index stats:", JSON.stringify(stats));
+
+  return { vectorCount: stats.totalRecordCount ?? 0 };
+}
+
+export default { add, del, get, update, search, toJSON, fromJSON, indexStats };
