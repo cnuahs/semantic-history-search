@@ -179,6 +179,18 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
       break;
 
+    case "index-stats":
+      retriever
+        .indexStats()
+        .then((stats) => {
+          sendResponse({ type: "result", payload: stats });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+
+      return true; // keep the channel open
+  
     default:
       console.warn("Unknown message type:", message.type);
 

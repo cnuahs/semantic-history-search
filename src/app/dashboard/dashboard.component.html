@@ -22,18 +22,38 @@
       <div class="w-full p-4 text-center text-slate-300">Loading...</div>
     } @else {
       <!-- summary stats -->
-      <div class="w-full px-2 py-2 mb-2 bg-white rounded-md flex flex-row gap-6">
-        <div class="flex flex-col items-center">
-          <span class="text-2xl font-semibold text-cyan-500">{{ nrBookmarks }}</span>
-          <span class="text-xs text-slate-400 uppercase tracking-wide">Pages</span>
+      <div class="w-full mb-2 flex flex-row gap-2">
+        <!-- local metrics -->
+        <div class="px-2 py-2 bg-white rounded-md flex flex-row gap-6 grow">
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-cyan-500">{{ nrBookmarks }}</span>
+            <span class="text-xs text-slate-400 uppercase tracking-wide">Pages</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-cyan-500">{{ nrVisits }}</span>
+            <span class="text-xs text-slate-400 uppercase tracking-wide">Visits</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-cyan-500">{{ oldestVisit | date: "MMM y" }}</span>
+            <span class="text-xs text-slate-400 uppercase tracking-wide">Since</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-cyan-500">{{ storageSizeMB | number: '1.0-0' }} MB</span>
+            <span class="text-xs text-slate-400 uppercase tracking-wide">Storage</span>
+          </div>
         </div>
-        <div class="flex flex-col items-center">
-          <span class="text-2xl font-semibold text-cyan-500">{{ nrVisits }}</span>
-          <span class="text-xs text-slate-400 uppercase tracking-wide">Visits</span>
-        </div>
-        <div class="flex flex-col items-center">
-          <span class="text-2xl font-semibold text-cyan-500">{{ oldestVisit | date: "MMM y" }}</span>
-          <span class="text-xs text-slate-400 uppercase tracking-wide">Since</span>
+        <!-- remote metrics -->
+        <!-- <div class="px-4 py-2 bg-cyan-500 rounded-md flex flex-row gap-6">
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-white">{{ vectorCount }}</span>
+            <span class="text-xs text-cyan-200 uppercase tracking-wide">Vectors</span>
+          </div>
+        </div> -->
+        <div class="px-4 py-2 bg-white rounded-md flex flex-row gap-6">
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-semibold text-cyan-500">{{ vectorCount }}</span>
+            <span class="text-xs text-slate-400 uppercase tracking-wide">Vectors</span>
+          </div>
         </div>
       </div>
 

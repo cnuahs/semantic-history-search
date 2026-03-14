@@ -24,6 +24,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get nrVisits(): number { return this.bookmarks.reduce((n, b) => n + b.visits.length, 0); }
   get oldestVisit(): number { return Math.min(...this.bookmarks.flatMap((b: any) => b.visits)); }
 
+  vectorCount: number = 0; // vector database/store size
+
+  storageSizeMB: number = 0;
+
   // growth
   growth: { t: number, n: number }[] = [];
   private _growthCurveEl!: ElementRef;
@@ -78,7 +82,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.version = chrome.runtime.getManifest().version;
-    
+
     Promise.all([
       this.settingsService.get('purge-threshold'),
       this.settingsService.get('frecency-half-life'),
@@ -96,6 +100,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.buildHistogram();
       this.isLoading = false;
     });
+
+    this.searchService.indexStats().then((stats) => {
+      this.vectorCount = stats.vectorCount;
+    });
+
+    navigator.storage.estimate().then((estimate) => {
+      this.storageSizeMB = (estimate.usage ?? 0) / (1024 * 1024);
+    });
   }
 
   ngOnDestroy() {
@@ -108,15 +120,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .map((b, i) => ({ t: b.visits[0], n: i + 1 }));
   }
 
+  private kde(visits: number[], bandwidth: number, points: number[], normalise: boolean = true): number[] {
+    const values = points.map(t =>
+      visits.reduce((sum, v) => {
+        const z = (t - v) / bandwidth;
+        return sum + Math.exp(-0.5 * z * z);
+      }, 0)
+    );
+    if (!normalise) return values;
+    const max = Math.max(...values);
+    return max > 0 ? values.map(v => v / max) : values;
+  }
+
   buildGrowthCurve() {
     this.computeGrowth();
 
     if (!this._growthCurveEl) return;
-    const el = this._growthCurveEl.nativeElement;
 
+    const el = this._growthCurveEl.nativeElement;
     const margin = { top: 10, right: 10, bottom: 20, left: 40 };
     const width = el.clientWidth - margin.left - margin.right;
     const height = 160 - margin.top - margin.bottom;
+
+    // colours
+    const colours = {
+      growthLine: '#22d3ee',   // cyan-400
+      kdeAll: '#f1f5f9',       // slate-100
+      // kdeFirst: '#e2e8f0',     // slate-200
+      kdeFirst: '#94a3b8',     // slate-400 (for stroked variant)
+      axes: '#cbd5e1',         // slate-300
+    };
 
     // clear previous render
     d3.select(el).selectAll('*').remove();
@@ -125,26 +158,81 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .append('g')
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
+    const start = this.growth[0].t;
+    const end = Date.now();
+
     // scales
     const xScale = d3.scaleTime()
-      .domain([new Date(this.growth[0].t), new Date()])
+      .domain([new Date(start), new Date(end)])
       .range([0, width]);
 
     const yScale = d3.scaleLinear()
       .domain([0, this.nrBookmarks])
       .range([height, 0]);
 
+    // kde evaluation points — 200 evenly spaced
+    const nPoints = 200;
+    const points = d3.range(nPoints).map(i => start + (i / (nPoints - 1)) * (end - start));
+
+    // bandwidth ~ 1 week (7 days) in ms
+    const bandwidth = 7 * 24 * 60 * 60 * 1000;
+
+    // all visits
+    const allVisits = this.bookmarks.flatMap((b: any) => b.visits);
+    var kdeAll = this.kde(allVisits, bandwidth, points, false); // unnormalized
+
+    // first visits only
+    const firstVisits = this.bookmarks.map((b: any) => b.visits[0]);
+    var kdeFirst = this.kde(firstVisits, bandwidth, points, false); // unnormalized
+
+    // normalise both, preserving relative scale
+    const max = Math.max(...kdeAll);
+    kdeAll = kdeAll.map(v => v / max);
+    kdeFirst = kdeFirst.map(v => v / max);
+
+    // kde height — 20% of chart height
+    const kdeHeight = height * 0.2;
+
+    // area generator for kde
+    const kdeArea = d3.area<number>()
+      .x((_, i) => xScale(new Date(points[i])))
+      .y0(height)
+      .y1((d) => height - d * kdeHeight)
+      .curve(d3.curveBasis);
+
+    // draw all-visits kde (light gray)
+    svg.append('path')
+      .datum(kdeAll)
+      .attr('fill', colours.kdeAll)
+      .attr('stroke', 'none')
+      .attr('d', kdeArea);
+
+    // draw first-visits kde (slightly darker gray)
+    // svg.append('path')
+    //   .datum(kdeFirst)
+    //   .attr('fill', colours.kdeFirst)
+    //   .attr('stroke', 'none')
+    //   .attr('d', kdeArea);
+
+    // draw first-visits kde (stroke only)
+    svg.append('path')
+      .datum(kdeFirst)
+      .attr('fill', 'none')
+      .attr('stroke', colours.kdeFirst)
+      .attr('stroke-width', 1)
+      .attr('d', kdeArea);
+
     // axes
     svg.append('g')
       .attr('transform', `translate(0,${height})`)
       .call(d3.axisBottom(xScale).ticks(5))
-      .attr('color', '#cbd5e1'); // slate-300
+      .attr('color', colours.axes);
 
     svg.append('g')
       .call(d3.axisLeft(yScale).ticks(4))
-      .attr('color', '#cbd5e1');
+      .attr('color', colours.axes);
 
-    // line
+    // growth line (drawn last so it's on top)
     const line = d3.line<{ t: number, n: number }>()
       .x(p => xScale(new Date(p.t)))
       .y(p => yScale(p.n));
@@ -152,7 +240,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     svg.append('path')
       .datum(this.growth)
       .attr('fill', 'none')
-      .attr('stroke', '#22d3ee')
+      .attr('stroke', colours.growthLine)
       .attr('stroke-width', 1.5)
       .attr('d', line);
   }
