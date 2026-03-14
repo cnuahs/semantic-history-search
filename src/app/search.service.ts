@@ -112,5 +112,22 @@ export class SearchService {
     });
   }
  
+  async getMeta(): Promise<Record<string, any>> {
+    return chrome.runtime.sendMessage({ type: "get-meta" }).then((response) => {
+      if (!response || response.type !== "result") {
+        return {};
+      }
+      return response.payload as Record<string, any>;
+    });
+  }
+
+  async setMeta(fields: Record<string, any>): Promise<void> {
+    return chrome.runtime.sendMessage({ type: "set-meta", payload: fields }).then((response) => {
+      if (!response || response.type !== "result") {
+        throw new Error("Unexpected response from service worker.");
+      }
+    });
+  }
+
   constructor() {}
 }

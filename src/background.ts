@@ -6,6 +6,8 @@ import settings, { SettingValue } from "./settings";
 
 import retriever, { Bookmark } from "./retriever";
 
+import { getMeta, setMeta } from "./db";
+
 function bin2hex(buf: ArrayBuffer) {
   const hex = Array.from(new Uint8Array(buf))
     .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -190,7 +192,29 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         });
 
       return true; // keep the channel open
-  
+
+    case "get-meta":
+      getMeta()
+        .then((meta) => {
+          sendResponse({ type: "result", payload: meta });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+
+      return true; // keep the channel open
+
+    case "set-meta":
+      setMeta(message.payload)
+        .then(() => {
+          sendResponse({ type: "result", payload: null });
+        })
+        .catch((err) => {
+          sendResponse({ type: "error", payload: err as Error });
+        });
+        
+      return true; // keep the channel open
+
     default:
       console.warn("Unknown message type:", message.type);
 

@@ -19,6 +19,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   bookmarks: any[] = [];
 
+  lastPurgeDate: number | null = null;
+  
   // summary stats
   get nrBookmarks(): number { return this.bookmarks.length; }
   get nrVisits(): number { return this.bookmarks.reduce((n, b) => n + b.visits.length, 0); }
@@ -105,8 +107,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.vectorCount = stats.vectorCount;
     });
 
+    // get estimate of local storage usage
     navigator.storage.estimate().then((estimate) => {
       this.storageSizeMB = (estimate.usage ?? 0) / (1024 * 1024);
+    });
+
+    this.searchService.getMeta().then((meta) => {
+      this.lastPurgeDate = meta['lastPurgeDate'] ?? null;
     });
   }
 
@@ -352,6 +359,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     toDelete.forEach(({ id }) => this.searchService.del(id));
     const deleteIds = new Set(toDelete.map(s => s.id));
     this.bookmarks = this.bookmarks.filter((b: any) => !deleteIds.has(b.id));
+    this.lastPurgeDate = Date.now();
+    this.searchService.setMeta({ lastPurgeDate: this.lastPurgeDate });
     this.buildGrowthCurve();
     this.buildHistogram();
   }
