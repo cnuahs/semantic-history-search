@@ -23,6 +23,8 @@ const _defaults = {
   "include-patterns": {},
   "exclude-patterns": {},
   "history-limit-days": {},
+  "search-result-limit": {},
+  "search-similarity-threshold": {},
   "frecency-half-life": {},
   "purge-threshold": {},
 };

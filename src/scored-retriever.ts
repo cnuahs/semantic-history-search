@@ -17,6 +17,11 @@ export class ScoredParentDocumentRetriever extends ParentDocumentRetriever {
   // default 0 = no filtering (default behaviour)
   similarityThreshold: number = 0;
 
+  constructor(fields: ConstructorParameters<typeof ParentDocumentRetriever>[0] & { similarityThreshold?: number }) {
+    super(fields);
+    this.similarityThreshold = fields.similarityThreshold ?? 0;
+  }
+
   override async _getRelevantDocuments(query: string): Promise<Document[]> {
     // get child docs with similarity scores
     const childDocsWithScores = await this.vectorstore

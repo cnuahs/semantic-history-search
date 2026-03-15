@@ -212,6 +212,62 @@
         "secure"
       ]
     },
+    "search-result-limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Search Result Limit"
+        },
+        "description": {
+          "type": "string",
+          "default": "Maximum number of pages to return in search results."
+        },
+        "value": {
+          "type": "number",
+          "default": 5
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
+    "search-similarity-threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Search Similarity Threshold"
+        },
+        "description": {
+          "type": "string",
+          "default": "Minimum similarity score (0-1) for a result to be included. Higher values return fewer but more relevant results."
+        },
+        "value": {
+          "type": "number",
+          "default": 0
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
     "frecency-half-life": {
       "type": "object",
       "properties": {

@@ -612,8 +612,13 @@ function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
           // }),
           childSplitter: new NaiveTextSplitter(),
 
-          childK: 500, // the number of nearest neighbours (i.e., child documents) to retrieve
-          parentK: 5, // upper bound on the number of parent documents to return
+          // the number of nearest neighbours (i.e., child documents) to retrieve
+          childK: (settings["search-result-limit"].value as number) * 100,
+          
+          // upper bound on the number of parent documents to return
+          parentK: settings["search-result-limit"].value as number,
+
+          similarityThreshold: settings["search-similarity-threshold"].value as number,
         });
         resolve(retriever);
       })
@@ -651,6 +656,8 @@ settings.addListener(
     "pinecone-index",
     "pinecone-namespace",
     "pinecone-api-key",
+    "search-result-limit",
+    "search-similarity-threshold",
   ],
   (changes) => {
     setup(changes.newValue)
