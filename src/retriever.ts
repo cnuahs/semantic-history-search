@@ -751,38 +751,23 @@ export async function del(id: string): Promise<void> {
   return dStore.mdelete([id]);
 }
 
-// get bookmarks by id
-export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
-  if (id) {
-    // const results = await dStore.mget(id);
-    // return results.map((bmk) => bmk ? Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(bmk))) : null);
-
-    return dStore.mget(id).then((results) => {
-      return results.map((bmk) =>
-        bmk
-          ? Bookmark.fromDocument(bmk)
-          : null,
-      );
-    });
-  }
-
-  // return *all* bookmarks, sorted by most recent visit
-  return new Promise((resolve, _reject) => {
-    resolve(
-      Object.entries(dStore.store)
-        .map(([_key, value]) => Bookmark.fromDocument(value))
-        .sort((a, b) => {
-          const aLast = a.visits[a.visits.length - 1] ?? 0;
-          const bLast = b.visits[b.visits.length - 1] ?? 0;
-          return bLast - aLast;
-        }),
-    );
-  });
-}
-
 // update bookmark by id
 export async function update(id: string, fields: Record<string, any>): Promise<void> {
   return dStore.update(id, fields);
+}
+
+export async function select(
+  predicate: (bmk: Bookmark) => boolean = () => true,
+  limit?: number,
+): Promise<Bookmark[]> {
+  const results: Bookmark[] = [];
+  for (const bmk of Object.values(dStore.store)) {
+    if (predicate(bmk)) {
+      results.push(bmk);
+      if (limit && results.length >= limit) break;
+    }
+  }
+  return results;
 }
 
 // similarity search on bookmark embeddings
@@ -801,6 +786,10 @@ export async function search(query: string): Promise<Bookmark[]> {
       console.error("Search error stack:", err.stack);
       throw err;
     });
+}
+
+export async function exists(ids: string[]): Promise<Record<string, boolean>> {
+  return Object.fromEntries(ids.map(id => [id, id in dStore.store]));
 }
 
 // dump/export browsing history to file
@@ -941,4 +930,4 @@ export async function indexStats(): Promise<{ vectorCount: number }> {
   return { vectorCount: stats.totalRecordCount ?? 0 };
 }
 
-export default { add, del, get, update, search, toJSON, fromJSON, indexStats };
+export default { add, del, update, select, search, exists, toJSON, fromJSON, indexStats };
