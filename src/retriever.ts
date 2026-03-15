@@ -363,10 +363,8 @@ export interface DocStoreWithUpdate {
   update(key: string, fields: Record<string, any>): Promise<void>;
 }
 
-// wtf? ParentDocumentRetriever currenly *only* supports document stores accepting Uint8Arrays...!?
-
-// In-memory store using a dictionary, backed by chrome.storage.local.
-export class InMemoryLocalStore extends BaseStore<string, Uint8Array> implements DocStoreWithUpdate {
+// In-memory store using a dictionary, backed by IndexedDB (via PouchDB).
+export class InMemoryLocalStore extends BaseStore<string, Document> implements DocStoreWithUpdate {
   override lc_namespace = [".", "retriever"];
   override lc_serializable = true;
 
@@ -388,12 +386,9 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> implements
     this.store = store ?? {};
   }
 
-  override async mset(items: [string, Uint8Array][]): Promise<void> {
+  override async mset(items: [string, Document][]): Promise<void> {
     for (const [key, value] of items) {
-      // decode Uint8Array --> Bookmark to store
-      this.store[key] = Bookmark.fromDocument(
-        JSON.parse(new TextDecoder().decode(value)),
-      );
+      this.store[key] = Bookmark.fromDocument(value);
 
       // save to db
       await db.upsert(key, (existing) => ({
@@ -403,14 +398,8 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> implements
     }
   }
 
-  override async mget(keys: string[]): Promise<(Uint8Array | undefined)[]> {
-    return keys.map((key) => {
-      const value = this.store[key];
-      // encode Bookmark --> Uint8Array to return
-      return value
-        ? new TextEncoder().encode(JSON.stringify(value))
-        : undefined;
-    });
+  override async mget(keys: string[]): Promise<(Document | undefined)[]> {
+    return keys.map((key) => this.store[key] ?? undefined);
   }
 
   override async mdelete(keys: string[]): Promise<void> {
@@ -553,19 +542,7 @@ export class Bookmark extends Document<Record<string, any>> {
 
 // add document/bookmark to dStore
 async function addBookmark(doc: Record<string, Document>) {
-  // console.dir(doc)
-
-  // serialize the document and store it in the docstore
-  const docs: [string, Uint8Array][] = Object.entries(doc).map(
-    ([key, value]) => {
-      // console.log("key:", key);
-      // console.log("value:", value);
-      return [key, new TextEncoder().encode(JSON.stringify(value))];
-    },
-  );
-  // console.dir(docs);
-
-  await dStore.mset(docs);
+  await dStore.mset(Object.entries(doc));
 }
 
 /*
@@ -626,7 +603,7 @@ function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
         // finally... the retriever
         const retriever = new ScoredParentDocumentRetriever({
           vectorstore: vStore,
-          byteStore: dStore,
+          docstore: dStore,
 
           // not required, we're not interested in retrieving chunks within the parent documents
           // parentSplitter: new RecursiveCharacterTextSplitter({
@@ -776,7 +753,7 @@ export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
     return dStore.mget(id).then((results) => {
       return results.map((bmk) =>
         bmk
-          ? Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(bmk)))
+          ? Bookmark.fromDocument(bmk)
           : null,
       );
     });

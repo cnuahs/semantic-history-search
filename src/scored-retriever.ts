@@ -17,19 +17,6 @@ export class ScoredParentDocumentRetriever extends ParentDocumentRetriever {
   // default 0 = no filtering (default behaviour)
   similarityThreshold: number = 0;
 
-  // langchain wraps our docstore in a byte store interface, but we need a direct reference to
-  // it to support updating bookmarks (to track the number of vectors they yield)
-  // 
-  // here we keep a direct reference to the docstore behind .byteStore
-  byteStoreRef: DocStoreWithUpdate | null = null;
-
-  constructor(fields: ConstructorParameters<typeof ParentDocumentRetriever>[0]) {
-    super(fields);
-    if (fields.byteStore && isUpdatable(fields.byteStore)) {
-      this.byteStoreRef = fields.byteStore;
-    }
-  }
-
   override async _getRelevantDocuments(query: string): Promise<Document[]> {
     // get child docs with similarity scores
     const childDocsWithScores = await this.vectorstore
@@ -56,7 +43,7 @@ export class ScoredParentDocumentRetriever extends ParentDocumentRetriever {
 
     // retrieve parent docs from docstore
     const parentDocs = (await this.docstore.mget(parentDocIds))
-      .filter((doc: Uint8Array | undefined) => doc !== undefined);
+      .filter((doc: Document | undefined) => doc !== undefined);
 
     return parentDocs.slice(0, this.parentK);
   }
@@ -71,10 +58,10 @@ export class ScoredParentDocumentRetriever extends ParentDocumentRetriever {
 
     // record vector count if docstore supports update()
     const parentDocId = Object.keys(parentDoc)[0];
-    if (this.byteStoreRef) {
-      const existing = (this.byteStoreRef as any).store?.[parentDocId];
-      const nrVectors = existing?.metadata?.nrVectors ?? 0;
-      await this.byteStoreRef.update(parentDocId, { nrVectors: nrVectors + childDocs.length });
+    if (isUpdatable(this.docstore)) {
+      const existing = (this.docstore as any).store?.[parentDocId];
+      const nrVectors = (existing as any)?.metadata?.nrVectors ?? 0;
+      await this.docstore.update(parentDocId, { nrVectors: nrVectors + childDocs.length });
     }
   }
 }
