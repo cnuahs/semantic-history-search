@@ -781,34 +781,8 @@ export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
 }
 
 // update bookmark by id
-export async function update(id: string, fields: object): Promise<void> {
-  if (fields instanceof Bookmark) {
-    console.log("Updating bookmark:", fields);
-    return new Promise((resolve, reject) => {
-      if (id !== fields.id) {
-        reject(
-          new Error(
-            `Supplied id ${id} does not match the bookmark id: ${fields.id}`,
-          ),
-        );
-      }
-      // update the bookmark
-      resolve(addBookmark({ [id]: fields }));
-    });
-  }
-
-  return get([id]).then((bmk) => {
-    if (!bmk[0]) {
-      throw new Error(`Bookmark with id ${id} not found.`);
-    }
-
-    if ("id" in fields) {
-      throw new Error("Cannot update id.");
-    }
-
-    // update the bookmark
-    return addBookmark({ [id]: Object.assign(bmk[0], fields) });
-  });
+export async function update(id: string, fields: Record<string, any>): Promise<void> {
+  return dStore.update(id, fields);
 }
 
 // similarity search on bookmark embeddings
