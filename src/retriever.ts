@@ -439,15 +439,17 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> implements
   async update(key: string, fields: Record<string, any>): Promise<void> {
     // update the in memory store...
     if (this.store[key]) {
-      Object.assign(this.store[key], fields);
+      Object.assign(this.store[key].metadata, fields);
     }
     // ... and the db
     await db.upsert(key, (existing) => ({
       ...existing,
-      ...fields,
+      metadata: {
+        ...(existing as any).metadata,
+        ...fields,
+      },
     }));
-  }
-}
+  }}
 
 // const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
 const dStore = new InMemoryLocalStore({}); // empty store
@@ -476,6 +478,7 @@ export class Bookmark extends Document<Record<string, any>> {
       href: fields.href ? fields.href : null,
       host: fields.host ? fields.host : null,
       visits: fields.visits ? fields.visits : [],
+      nrVectors: fields.nrVectors ?? null,
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -524,6 +527,13 @@ export class Bookmark extends Document<Record<string, any>> {
     return this.visits[0] ?? 0; // 1970-01-01:00:00:00Z
   }
 
+  get nrVectors(): number | null {
+    return this.metadata["nrVectors"] ?? null;
+  }
+  set nrVectors(value: number | null) {
+    this.metadata["nrVectors"] = value;
+  }
+
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>): Bookmark {
     const instance = new Bookmark({
@@ -533,6 +543,7 @@ export class Bookmark extends Document<Record<string, any>> {
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
       visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
+      nrVectors: "nrVectors" in doc.metadata ? doc.metadata["nrVectors"] : null,
     });
     return instance;
   }

@@ -48,6 +48,9 @@ export class SearchService {
                 visits: "visits" in result.metadata
                   ? result.metadata["visits"]
                   : [],
+                nrVectors: "nrVectors" in result.metadata
+                  ? result.metadata["nrVectors"]
+                  : 99,
                 id: result.id,
               }));
 

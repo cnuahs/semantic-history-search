@@ -53,7 +53,7 @@ async function migration_20260311(
   const result = await db.allDocs({ include_docs: true });
   await Promise.all(
     result.rows
-      .filter((row) => !row.id.startsWith('migration_'))
+      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
       .map((row) => {
         const doc = row.doc as any;
         if (doc.metadata) {
@@ -72,6 +72,72 @@ async function migration_20260311(
   console.log('Migration 20260311 complete.');
 }
 
+// 2026-03-15: add nrVectors to existing bookmarks (null = unknown; backfilled later)
+async function migration_20260315(
+  db: PouchDB.Database
+): Promise<void> {
+  const key = 'migration_20260315';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
+
+  const result = await db.allDocs({ include_docs: true });
+  await Promise.all(
+    result.rows
+      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+      .map((row) => {
+        return db.upsert(row.id, (existing: any) => ({
+          ...existing,
+          metadata: {
+            ...existing.metadata,
+            nrVectors: null,
+          },
+        }));
+      })
+  );
+
+  await db.put({ _id: key });
+  console.log('Migration 20260315 complete.');
+}
+
+// // 2026-03-15: fix incorrectly migrated bookmarks where nrVectors was added at top level instead of metadata
+// async function migration_20260315_fix(
+//   db: PouchDB.Database
+// ): Promise<void> {
+//   const key = 'migration_20260315_fix';
+//   try {
+//     await db.get(key);
+//     return; // already migrated
+//   } catch {
+//     // not migrated yet, proceed
+//   }
+
+//   const result = await db.allDocs({ include_docs: true });
+//   await Promise.all(
+//     result.rows
+//       .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+//       .filter((row) => 'nrVectors' in (row.doc as any) && !((row.doc as any).metadata?.nrVectors !== undefined))
+//       .map((row) => {
+//         return db.upsert(row.id, (existing: any) => {
+//           const { nrVectors, ...rest } = existing;
+//           return {
+//             ...rest,
+//             metadata: {
+//               ...existing.metadata,
+//               nrVectors: null,
+//             },
+//           };
+//         });
+//       })
+//   );
+
+//   // await db.put({ _id: key });
+//   console.log('Migration 20260315_fix complete.');
+// }
+
 // Add migrations here, e.g.:
 // YYYY-MM-DD: <description>
 // async function migration_YYYYMMDD(db: PouchDB.Database): Promise<void> { ... }
@@ -79,5 +145,8 @@ async function migration_20260311(
 export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260310(db);
   await migration_20260311(db);
+  await migration_20260315(db);
   // await migration_YYYYMMDD(db);
+  await db.compact();
+  console.log('Database compacted.');
 }
