@@ -359,10 +359,14 @@ import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 // import { InMemoryStore } from "@langchain/core/stores"
 import { BaseStore } from "@langchain/core/stores";
 
+export interface DocStoreWithUpdate {
+  update(key: string, fields: Record<string, any>): Promise<void>;
+}
+
 // wtf? ParentDocumentRetriever currenly *only* supports document stores accepting Uint8Arrays...!?
 
 // In-memory store using a dictionary, backed by chrome.storage.local.
-export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
+export class InMemoryLocalStore extends BaseStore<string, Uint8Array> implements DocStoreWithUpdate {
   override lc_namespace = [".", "retriever"];
   override lc_serializable = true;
 
@@ -429,6 +433,19 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
         yield key;
       }
     }
+  }
+
+  // update a document/bookmark post hoc - allows us to update a document in the store after it is added
+  async update(key: string, fields: Record<string, any>): Promise<void> {
+    // update the in memory store...
+    if (this.store[key]) {
+      Object.assign(this.store[key], fields);
+    }
+    // ... and the db
+    await db.upsert(key, (existing) => ({
+      ...existing,
+      ...fields,
+    }));
   }
 }
 
@@ -544,17 +561,17 @@ async function addBookmark(doc: Record<string, Document>) {
  * Retriever...
  */
 
-import { ParentDocumentRetriever } from "@langchain/classic/retrievers/parent_document";
+import { ScoredParentDocumentRetriever } from "./scored-retriever";
 
-let retriever: ParentDocumentRetriever | null = null;
+let retriever: ScoredParentDocumentRetriever | null = null;
 
 import settings, { Setting } from "./settings";
 
-function setup(settings: any): Promise<ParentDocumentRetriever> {
+function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
   // set up the retriever with the supplied settings
   console.log("Setting up the retriever with settings:", settings);
 
-  return initLocalCache.then(() => new Promise<ParentDocumentRetriever>((resolve, reject) => {
+  return initLocalCache.then(() => new Promise<ScoredParentDocumentRetriever>((resolve, reject) => {
     // embedding model
     if (!settings["embedding-model"].value) {
       reject(new Error("No embedding model specified."));
@@ -596,7 +613,7 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
         const [vStore] = values;
 
         // finally... the retriever
-        const retriever = new ParentDocumentRetriever({
+        const retriever = new ScoredParentDocumentRetriever({
           vectorstore: vStore,
           byteStore: dStore,
 
