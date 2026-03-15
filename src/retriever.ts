@@ -359,10 +359,12 @@ import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 // import { InMemoryStore } from "@langchain/core/stores"
 import { BaseStore } from "@langchain/core/stores";
 
-// wtf? ParentDocumentRetriever currenly *only* supports document stores accepting Uint8Arrays...!?
+export interface DocStoreWithUpdate {
+  update(key: string, fields: Record<string, any>): Promise<void>;
+}
 
-// In-memory store using a dictionary, backed by chrome.storage.local.
-export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
+// In-memory store using a dictionary, backed by IndexedDB (via PouchDB).
+export class InMemoryLocalStore extends BaseStore<string, Document> implements DocStoreWithUpdate {
   override lc_namespace = [".", "retriever"];
   override lc_serializable = true;
 
@@ -384,12 +386,9 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
     this.store = store ?? {};
   }
 
-  override async mset(items: [string, Uint8Array][]): Promise<void> {
+  override async mset(items: [string, Document][]): Promise<void> {
     for (const [key, value] of items) {
-      // decode Uint8Array --> Bookmark to store
-      this.store[key] = Bookmark.fromDocument(
-        JSON.parse(new TextDecoder().decode(value)),
-      );
+      this.store[key] = Bookmark.fromDocument(value);
 
       // save to db
       await db.upsert(key, (existing) => ({
@@ -399,14 +398,8 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
     }
   }
 
-  override async mget(keys: string[]): Promise<(Uint8Array | undefined)[]> {
-    return keys.map((key) => {
-      const value = this.store[key];
-      // encode Bookmark --> Uint8Array to return
-      return value
-        ? new TextEncoder().encode(JSON.stringify(value))
-        : undefined;
-    });
+  override async mget(keys: string[]): Promise<(Document | undefined)[]> {
+    return keys.map((key) => this.store[key] ?? undefined);
   }
 
   override async mdelete(keys: string[]): Promise<void> {
@@ -430,7 +423,22 @@ export class InMemoryLocalStore extends BaseStore<string, Uint8Array> {
       }
     }
   }
-}
+
+  // update a document/bookmark post hoc - allows us to update a document in the store after it is added
+  async update(key: string, fields: Record<string, any>): Promise<void> {
+    // update the in memory store...
+    if (this.store[key]) {
+      Object.assign(this.store[key].metadata, fields);
+    }
+    // ... and the db
+    await db.upsert(key, (existing) => ({
+      ...existing,
+      metadata: {
+        ...(existing as any).metadata,
+        ...fields,
+      },
+    }));
+  }}
 
 // const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
 const dStore = new InMemoryLocalStore({}); // empty store
@@ -459,6 +467,7 @@ export class Bookmark extends Document<Record<string, any>> {
       href: fields.href ? fields.href : null,
       host: fields.host ? fields.host : null,
       visits: fields.visits ? fields.visits : [],
+      nrVectors: fields.nrVectors ?? null,
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -507,6 +516,13 @@ export class Bookmark extends Document<Record<string, any>> {
     return this.visits[0] ?? 0; // 1970-01-01:00:00:00Z
   }
 
+  get nrVectors(): number | null {
+    return this.metadata["nrVectors"] ?? null;
+  }
+  set nrVectors(value: number | null) {
+    this.metadata["nrVectors"] = value;
+  }
+
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>): Bookmark {
     const instance = new Bookmark({
@@ -516,6 +532,7 @@ export class Bookmark extends Document<Record<string, any>> {
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
       visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
+      nrVectors: "nrVectors" in doc.metadata ? doc.metadata["nrVectors"] : null,
     });
     return instance;
   }
@@ -525,36 +542,24 @@ export class Bookmark extends Document<Record<string, any>> {
 
 // add document/bookmark to dStore
 async function addBookmark(doc: Record<string, Document>) {
-  // console.dir(doc)
-
-  // serialize the document and store it in the docstore
-  const docs: [string, Uint8Array][] = Object.entries(doc).map(
-    ([key, value]) => {
-      // console.log("key:", key);
-      // console.log("value:", value);
-      return [key, new TextEncoder().encode(JSON.stringify(value))];
-    },
-  );
-  // console.dir(docs);
-
-  await dStore.mset(docs);
+  await dStore.mset(Object.entries(doc));
 }
 
 /*
  * Retriever...
  */
 
-import { ParentDocumentRetriever } from "@langchain/classic/retrievers/parent_document";
+import { ScoredParentDocumentRetriever } from "./scored-retriever";
 
-let retriever: ParentDocumentRetriever | null = null;
+let retriever: ScoredParentDocumentRetriever | null = null;
 
 import settings, { Setting } from "./settings";
 
-function setup(settings: any): Promise<ParentDocumentRetriever> {
+function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
   // set up the retriever with the supplied settings
   console.log("Setting up the retriever with settings:", settings);
 
-  return initLocalCache.then(() => new Promise<ParentDocumentRetriever>((resolve, reject) => {
+  return initLocalCache.then(() => new Promise<ScoredParentDocumentRetriever>((resolve, reject) => {
     // embedding model
     if (!settings["embedding-model"].value) {
       reject(new Error("No embedding model specified."));
@@ -596,9 +601,9 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
         const [vStore] = values;
 
         // finally... the retriever
-        const retriever = new ParentDocumentRetriever({
+        const retriever = new ScoredParentDocumentRetriever({
           vectorstore: vStore,
-          byteStore: dStore,
+          docstore: dStore,
 
           // not required, we're not interested in retrieving chunks within the parent documents
           // parentSplitter: new RecursiveCharacterTextSplitter({
@@ -607,8 +612,13 @@ function setup(settings: any): Promise<ParentDocumentRetriever> {
           // }),
           childSplitter: new NaiveTextSplitter(),
 
-          childK: 500, // the number of nearest neighbours (i.e., child documents) to retrieve
-          parentK: 5, // upper bound on the number of parent documents to return
+          // the number of nearest neighbours (i.e., child documents) to retrieve
+          childK: (settings["search-result-limit"].value as number) * 100,
+          
+          // upper bound on the number of parent documents to return
+          parentK: settings["search-result-limit"].value as number,
+
+          similarityThreshold: settings["search-similarity-threshold"].value as number,
         });
         resolve(retriever);
       })
@@ -646,6 +656,8 @@ settings.addListener(
     "pinecone-index",
     "pinecone-namespace",
     "pinecone-api-key",
+    "search-result-limit",
+    "search-similarity-threshold",
   ],
   (changes) => {
     setup(changes.newValue)
@@ -748,7 +760,7 @@ export async function get(id?: string[]): Promise<(Bookmark | null)[]> {
     return dStore.mget(id).then((results) => {
       return results.map((bmk) =>
         bmk
-          ? Bookmark.fromDocument(JSON.parse(new TextDecoder().decode(bmk)))
+          ? Bookmark.fromDocument(bmk)
           : null,
       );
     });
