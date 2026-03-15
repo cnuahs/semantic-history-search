@@ -25,7 +25,8 @@
     "scripting",
     "storage",
     "unlimitedStorage",
-    "downloads"
+    "downloads",
+    "alarms"
   ],
   "host_permissions": ["https://*/*", "http://*/*"],
   "background": {

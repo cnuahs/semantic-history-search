@@ -451,7 +451,7 @@ const initLocalCache = migrate(db).then(() =>
     result.rows
       .filter((row) => !row.id.startsWith('migration_'))
       .forEach((row) => {
-        dStore.store[row.id] = row.doc as unknown as Bookmark;
+        dStore.store[row.id] = Bookmark.fromDocument(row.doc as unknown as Document);
       });
   })
 );
@@ -553,6 +553,15 @@ import { ScoredParentDocumentRetriever } from "./scored-retriever";
 
 let retriever: ScoredParentDocumentRetriever | null = null;
 
+let resolveReady: () => void;
+const readyPromise = new Promise<void>((resolve) => {
+  resolveReady = resolve;
+});
+
+function ready(): Promise<void> {
+  return readyPromise;
+}
+
 import settings, { Setting } from "./settings";
 
 function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
@@ -641,6 +650,7 @@ settings.get().then((_settings) => {
     .then((_retriever) => {
       console.log("Retriever initialised.");
       retriever = _retriever;
+      resolveReady();
     })
     .catch((err) => {
       console.error("Retriever initialisation failed:", err);
@@ -930,4 +940,27 @@ export async function indexStats(): Promise<{ vectorCount: number }> {
   return { vectorCount: stats.totalRecordCount ?? 0 };
 }
 
-export default { add, del, update, select, search, exists, toJSON, fromJSON, indexStats };
+
+export async function getNrVectors(id: string): Promise<number> {
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  const vStore = retriever.vectorstore as PineconeStore;
+  const index = vStore.pineconeIndex;
+
+  let count = 0;
+  let records = await index.listPaginated({ prefix: `${id}:` });
+  count += records.vectors?.length ?? 0;
+
+  while (records.pagination) {
+    records = await index.listPaginated({
+      paginationToken: records.pagination.next,
+    });
+    count += records.vectors?.length ?? 0;
+  }
+
+  return count;
+}
+
+export default { add, del, update, select, search, exists, ready, toJSON, fromJSON, indexStats, getNrVectors };
