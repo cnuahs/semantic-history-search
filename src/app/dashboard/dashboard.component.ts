@@ -54,6 +54,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  private _vectorHistogramEl!: ElementRef;
+
+  @ViewChild('vectorHistogram') set vectorHistogramEl(el: ElementRef) {
+    this._vectorHistogramEl = el;
+    if (el) this.buildVectorHistogram();
+  }
+
   // frecency
   halfLifeDays: number = 30;
   scores: { id: string, score: number }[] = [];
@@ -100,6 +107,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.bookmarks = bookmarks;
       this.buildGrowthCurve();
       this.buildHistogram();
+      this.buildVectorHistogram();
       this.isLoading = false;
     });
 
@@ -354,6 +362,73 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .attr('stroke-dasharray', '4,2');
   }
 
+  buildVectorHistogram() {
+    if (!this._vectorHistogramEl) return;
+
+    const el = this._vectorHistogramEl.nativeElement;
+    const margin = { top: 10, right: 10, bottom: 20, left: 40 };
+    const width = el.clientWidth - margin.left - margin.right;
+    const height = 160 - margin.top - margin.bottom;
+
+    d3.select(el).selectAll('*').remove();
+
+    const svg = d3.select(el)
+      .append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // colours
+    const colors = {
+      nullBar: '#f1f5f9',      // slate-100 — unknown
+      bar: '#22d3ee',          // cyan-400 — known
+      axes: '#cbd5e1',         // slate-300
+    };
+
+    // bin boundaries: null, 1, 2-5, 6-10, 11-50, 51-100, 101-500, 501+
+    const binLabels = ['--', '1', '2-5', '6-10', '11-50', '51-100', '101-500', '501+'];
+    const binCounts = [0, 0, 0, 0, 0, 0, 0, 0];
+
+    for (const b of this.bookmarks) {
+      const n = b.nrVectors;
+      if (n === null || n === undefined) binCounts[0]++;
+      else if (n === 1) binCounts[1]++;
+      else if (n <= 5) binCounts[2]++;
+      else if (n <= 10) binCounts[3]++;
+      else if (n <= 50) binCounts[4]++;
+      else if (n <= 100) binCounts[5]++;
+      else if (n <= 500) binCounts[6]++;
+      else binCounts[7]++;
+    }
+
+    const xScale = d3.scaleBand()
+      .domain(binLabels)
+      .range([0, width])
+      .padding(0.1);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, Math.max(...binCounts)])
+      .range([height, 0]);
+
+    // axes
+    svg.append('g')
+      .attr('transform', `translate(0,${height})`)
+      .call(d3.axisBottom(xScale))
+      .attr('color', colors.axes);
+
+    svg.append('g')
+      .call(d3.axisLeft(yScale).ticks(4))
+      .attr('color', colors.axes);
+
+    // bars
+    binLabels.forEach((label, i) => {
+      svg.append('rect')
+        .attr('x', xScale(label)!)
+        .attr('y', yScale(binCounts[i]))
+        .attr('width', xScale.bandwidth())
+        .attr('height', height - yScale(binCounts[i]))
+        .attr('fill', i === 0 ? colors.nullBar : colors.bar);
+    });
+  }
+
   purge() {
     const toDelete = this.scores.filter(s => s.score < this.purgeThreshold);
     toDelete.forEach(({ id }) => this.searchService.del(id));
@@ -363,6 +438,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.searchService.setMeta({ lastPurgeDate: this.lastPurgeDate });
     this.buildGrowthCurve();
     this.buildHistogram();
+    this.buildVectorHistogram();
   }
 
   private saveSettings() {

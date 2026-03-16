@@ -119,8 +119,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         console.log("SHA256: %s", hash);
 
         // search for existing bookmark
-        // let bmk = (await retriever.get([hash])).filter((bmk) => bmk !== null)[0];
-        let bmk = (await retriever.get([hash]))[0];
+        let bmk = (await retriever.select(b => b.id === hash, 1))[0];
 
         if (bmk) {
           console.log("Found bookmark:", bmk.href);
@@ -154,7 +153,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
 
         // get *all* bookmarks
         retriever
-          .get()
+          .select()
           .then((bmk) => {
             sendResponse({ type: "result", payload: bmk });
           })
@@ -273,6 +272,19 @@ addOnChunkedMessageListener(function (
 });
 
 // ------------------------------
+
+import maintenance from "./maintenance";
+
+maintenance.init();
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "shs-maintenance") {
+    maintenance.run().catch(err => {
+      console.warn("Maintenance run failed, will retry:", err.message);
+      maintenance.schedule(10); // wait 10 minutes if there was an error
+    });
+  }
+});
 
 // // create a new periodic alarm
 // chrome.alarms.create("shs-alarm", {
