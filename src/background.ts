@@ -273,13 +273,16 @@ addOnChunkedMessageListener(function (
 
 // ------------------------------
 
-import * as maintenance from "./maintenance";
+import maintenance from "./maintenance";
 
 maintenance.init();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "shs-maintenance") {
-    maintenance.run().catch(err => console.error("Maintenance run failed:", err));
+    maintenance.run().catch(err => {
+      console.warn("Maintenance run failed, will retry:", err.message);
+      maintenance.schedule(10); // wait 10 minutes if there was an error
+    });
   }
 });
 

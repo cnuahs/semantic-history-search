@@ -33,14 +33,14 @@ async function reconcileVectorCounts(): Promise<number> {
   return bmks.length;
 }
 
-function schedule(): void {
+function schedule(delay: number = ALARM_INTERVAL_MINUTES): void {
   chrome.alarms.create(ALARM_NAME, {
-    delayInMinutes: ALARM_INTERVAL_MINUTES,
+    delayInMinutes: delay,
   });
 }
 
 // run maintenance tasks, reschedule alarm if there is more work to do
-export async function run(): Promise<void> {
+async function run(): Promise<void> {
   const updated = await reconcileVectorCounts();
 
   if (updated > 0) {
@@ -52,7 +52,7 @@ export async function run(): Promise<void> {
 }
 
 // initialise maintenance on startup — schedule if there is work to do
-export async function init(): Promise<void> {
+async function init(): Promise<void> {
   await retriever.ready();
   const bmks = await retriever.select((bmk) => bmk.nrVectors === null, 1);
   if (bmks.length > 0) {
@@ -62,3 +62,5 @@ export async function init(): Promise<void> {
     console.log("No maintenance required.");
   }
 }
+
+export default { init, run, schedule };
