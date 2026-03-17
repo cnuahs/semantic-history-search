@@ -129,7 +129,7 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
         }
 
         // new bookmark
-        console.log("New bookmark:", info.href);
+        console.log("New bookmark:", normalize(info.href));
         retriever.add(normHash, { ...info, href: normalize(info.href) }); // add the bookmark, upsert embeddings etc.
       });
 
