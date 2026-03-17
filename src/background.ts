@@ -8,17 +8,8 @@ import retriever, { Bookmark } from "./retriever";
 
 import { getMeta, setMeta } from "./db";
 
-function bin2hex(buf: ArrayBuffer) {
-  const hex = Array.from(new Uint8Array(buf))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return hex;
-}
-
-async function sha256(str: string) {
-  const utf8 = new TextEncoder().encode(str);
-  return bin2hex(await crypto.subtle.digest("SHA-256", utf8));
-}
+import { normalize } from "./utils/url";
+import { sha256 } from "./utils/hash";
 
 settings
   .get() // returns *all* settings
@@ -112,27 +103,34 @@ chrome.runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       const info = message.payload;
       console.log("Host:", info.host);
 
-      // del(""); console.log("Index is clear!");
-
       // calculate hash of .href to use as the bookmark id
-      sha256(info.href).then(async (hash) => {
-        console.log("SHA256: %s", hash);
+      Promise.all([
+        sha256(normalize(info.href)),
+        sha256(info.href),
+      ]).then(async ([normHash, rawHash]) => {
+        console.log("SHA256 (normalised): %s", normHash);
 
-        // search for existing bookmark
-        let bmk = (await retriever.select(b => b.id === hash, 1))[0];
-
+        // check for existing bookmark under normalised hash
+        let bmk = (await retriever.select(b => b.id === normHash, 1))[0];
         if (bmk) {
-          console.log("Found bookmark:", bmk.href);
-
-          // TODO: update the metadata (timestamp etc.)?
-          retriever.update(hash, { visits: [...bmk.visits, Date.now()] });
-
+          console.log("Found bookmark (normalised):", bmk.href);
+          retriever.update(normHash, { visits: [...bmk.visits, Date.now()] });
           return;
         }
 
-        console.log("New bookmark:", info.href);
+        // check for existing bookmark under unnormalised (raw) hash (legacy)
+        if (rawHash !== normHash) {
+          bmk = (await retriever.select(b => b.id === rawHash, 1))[0];
+          if (bmk) {
+            console.log("Found bookmark (unnormalised):", bmk.href);
+            retriever.update(rawHash, { visits: [...bmk.visits, Date.now()] });
+            return;
+          }
+        }
 
-        retriever.add(hash, info); // add the bookmark, upsert embeddings etc.
+        // new bookmark
+        console.log("New bookmark:", normalize(info.href));
+        retriever.add(normHash, { ...info, href: normalize(info.href) }); // add the bookmark, upsert embeddings etc.
       });
 
       return false; // close the channel

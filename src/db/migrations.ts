@@ -103,40 +103,35 @@ async function migration_20260315(
   console.log('Migration 20260315 complete.');
 }
 
-// // 2026-03-15: fix incorrectly migrated bookmarks where nrVectors was added at top level instead of metadata
-// async function migration_20260315_fix(
-//   db: PouchDB.Database
-// ): Promise<void> {
-//   const key = 'migration_20260315_fix';
-//   try {
-//     await db.get(key);
-//     return; // already migrated
-//   } catch {
-//     // not migrated yet, proceed
-//   }
+// 2026-03-17: initialise normalizeDate in meta document for URL normalisation migration
+//
+// note: normalizeData is only set if there are existing bookmarks — new users skip the migration entirely.
+async function migration_20260317(db: PouchDB.Database): Promise<void> {
+  const key = 'migration_20260317';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
 
-//   const result = await db.allDocs({ include_docs: true });
-//   await Promise.all(
-//     result.rows
-//       .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
-//       .filter((row) => 'nrVectors' in (row.doc as any) && !((row.doc as any).metadata?.nrVectors !== undefined))
-//       .map((row) => {
-//         return db.upsert(row.id, (existing: any) => {
-//           const { nrVectors, ...rest } = existing;
-//           return {
-//             ...rest,
-//             metadata: {
-//               ...existing.metadata,
-//               nrVectors: null,
-//             },
-//           };
-//         });
-//       })
-//   );
+  const result = await db.allDocs({ include_docs: true });
+  const bookmarks = result.rows.filter(
+    (row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta')
+  );
 
-//   // await db.put({ _id: key });
-//   console.log('Migration 20260315_fix complete.');
-// }
+  if (bookmarks.length > 0) {
+    await db.upsert('meta', (existing: any) => ({
+      ...existing,
+      normalizeDate: 0, // 0 = Midnight, 1st Jan., 1970 - ensures all bookmarks get migrated (including any without a date)
+    }));
+    console.log('Migration 20260317: normalizeDate set to', new Date(0).toISOString());
+  } else {
+    console.log('Migration 20260317: no bookmarks found, skipping.');
+  }
+
+  await db.put({ _id: key });
+}
 
 // Add migrations here, e.g.:
 // YYYY-MM-DD: <description>
@@ -146,7 +141,7 @@ export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260310(db);
   await migration_20260311(db);
   await migration_20260315(db);
-  // await migration_YYYYMMDD(db);
+  await migration_20260317(db);
   await db.compact();
   console.log('Database compacted.');
 }

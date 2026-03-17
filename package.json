@@ -29,6 +29,7 @@
     "ext-send-chunked-message": "^1.0.0",
     "flat": "^6.0.1",
     "langchain": "^1.2.30",
+    "normalize-url": "^9.0.0",
     "pouchdb": "^9.0.0",
     "pouchdb-upsert": "^2.2.0",
     "rxjs": "^7.8.2",

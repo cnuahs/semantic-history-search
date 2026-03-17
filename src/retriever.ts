@@ -449,7 +449,7 @@ const dStore = new InMemoryLocalStore({}); // empty store
 const initLocalCache = migrate(db).then(() =>
   db.allDocs({ include_docs: true }).then((result) => {
     result.rows
-      .filter((row) => !row.id.startsWith('migration_'))
+      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
       .forEach((row) => {
         dStore.store[row.id] = Bookmark.fromDocument(row.doc as unknown as Document);
       });
@@ -525,13 +525,22 @@ export class Bookmark extends Document<Record<string, any>> {
 
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>): Bookmark {
+    // handle legacy format: date + count -> visits (c.f. migration_20260311)
+    let visits: number[] = [];
+    if ("visits" in doc.metadata) {
+      visits = doc.metadata["visits"];
+    } else if ("date" in doc.metadata) {
+      const count = doc.metadata["count"] ?? 1;
+      visits = Array(count).fill(doc.metadata["date"]);
+    }
+
     const instance = new Bookmark({
       id: doc.id,
       title: "title" in doc.metadata ? doc.metadata["title"] : null,
       href: "href" in doc.metadata ? doc.metadata["href"] : null,
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
-      visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
+      visits: visits,
       nrVectors: "nrVectors" in doc.metadata ? doc.metadata["nrVectors"] : null,
     });
     return instance;
@@ -963,4 +972,91 @@ export async function getNrVectors(id: string): Promise<number> {
   return count;
 }
 
-export default { add, del, update, select, search, exists, ready, toJSON, fromJSON, indexStats, getNrVectors };
+
+// migrate/rename bookmark from oldId to newId, e.g, unnormalized to normalized url hash 
+export async function rename(oldId: string, newId: string): Promise<void> {
+  if (!retriever) {
+    throw new Error("Retriever not initialised.");
+  }
+
+  // check existingOld exists
+  const existingOld = (await select(b => b.id === oldId, 1))[0];
+  if (!existingOld) {
+    console.error(`rename: bookmark ${oldId} not found.`);
+    return;
+  }
+
+  // check existingNew does not exist
+  const existingNew = (await select(b => b.id === newId, 1))[0];
+  if (existingNew) {
+    console.error(`rename: bookmark ${newId} already exists — unexpected state, skipping.`);
+    return;
+  }
+
+  const vStore = retriever.vectorstore as PineconeStore;
+  const index = vStore.pineconeIndex;
+
+  // collect all old vector ids
+  let oldVectorIds: string[] = [];
+  let records = await index.listPaginated({ prefix: `${oldId}:` });
+  oldVectorIds.push(...(records.vectors?.map(v => v.id).filter((id): id is string => id !== undefined) ?? []));
+  while (records.pagination) {
+    records = await index.listPaginated({ paginationToken: records.pagination.next });
+    oldVectorIds.push(...(records.vectors?.map(v => v.id).filter((id): id is string => id !== undefined) ?? []));
+  }
+
+  if (oldVectorIds.length > 0) {
+    // fetch vectors in batches of 100 (Pinecone limit)
+    const batches = chunkArray(oldVectorIds, 100);
+    const fetchedVectors: PineconeRecord<RecordMetadata>[] = [];
+
+    for (const batch of batches) {
+      const response = await new Promise<FetchResponse>((resolve) => {
+        setTimeout(
+          () => resolve(index.fetch(batch)),
+          Math.min(exprnd(0.5), 2.0) * 1000,
+        );
+      });
+      fetchedVectors.push(...Object.values(response.records));
+    }
+
+    // re-upsert with new id prefix, preserving uuid suffix
+    const newVectors: PineconeRecord<RecordMetadata>[] = fetchedVectors.map(v => ({
+      ...v,
+      id: `${newId}:${v.id.split(':')[1]}`,
+    }));
+
+    const upsertBatches = chunkArray(newVectors, 100);
+    for (const batch of upsertBatches) {
+      await new Promise((resolve) => {
+        setTimeout(
+          () => resolve(index.upsert(batch)),
+          Math.min(exprnd(0.5), 2.0) * 1000,
+        );
+      });
+    }
+
+    // delete old vectors
+    const deleteBatches = chunkArray(oldVectorIds, 1000);
+    for (const batch of deleteBatches) {
+      await index.deleteMany(batch);
+    }
+  }
+
+  // create new bookmark with newId and normalised href
+  const newBmk = new Bookmark({
+    id: newId,
+    title: existingOld.title,
+    href: existingOld.href,
+    host: existingOld.host,
+    excerpt: existingOld.excerpt,
+    visits: existingOld.visits,
+    nrVectors: existingOld.nrVectors,
+  });
+  await addBookmark({ [newId]: newBmk });
+
+  // delete old bookmark
+  await dStore.mdelete([oldId]);
+}
+
+export default { add, del, update, select, search, exists, ready, toJSON, fromJSON, indexStats, getNrVectors, rename };
