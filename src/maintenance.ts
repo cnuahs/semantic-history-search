@@ -70,8 +70,19 @@ async function normalizeUrls(): Promise<number> {
 
     if (normHash !== rawHash) {
       console.log(`Normalising bookmark: ${bmk.href} -> ${normHref}`);
-      await retriever.rename(rawHash, normHash);
-      await retriever.update(normHash, { href: normHref });
+
+      const bmk_ = (await retriever.select(b => b.id === normHash, 1))[0];
+
+      if (bmk_) {
+        console.log(`Merging ${rawHash} into ${normHash}`);
+        const visits = [ ...bmk.visits, ...bmk_.visits ].sort((a, b) => a - b);
+        await retriever.update(normHash, { visits: visits });
+        await retriever.del(rawHash);
+      } else {
+        console.log(`Renaming ${rawHash} to ${normHash}`)
+        await retriever.rename(rawHash, normHash);
+        await retriever.update(normHash, { href: normHref });
+      }
       renamedCount++;
     }
   }
@@ -92,8 +103,7 @@ function schedule(delay: number = ALARM_INTERVAL_MINUTES): void {
 
 // run maintenance tasks, reschedule alarm if there is more work to do
 async function run(): Promise<void> {
-//   const normalized = await normalizeUrls();
-  const normalized = 0; // await normalizeUrls(); // disabled pending investigation
+  const normalized = await normalizeUrls();
   const updated = await reconcileVectorCounts();
 
   if (normalized > 0 || updated > 0) {
