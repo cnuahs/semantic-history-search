@@ -449,7 +449,7 @@ const dStore = new InMemoryLocalStore({}); // empty store
 const initLocalCache = migrate(db).then(() =>
   db.allDocs({ include_docs: true }).then((result) => {
     result.rows
-      .filter((row) => !row.id.startsWith('migration_'))
+      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
       .forEach((row) => {
         dStore.store[row.id] = Bookmark.fromDocument(row.doc as unknown as Document);
       });
