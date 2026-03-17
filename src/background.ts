@@ -9,18 +9,7 @@ import retriever, { Bookmark } from "./retriever";
 import { getMeta, setMeta } from "./db";
 
 import { normalize } from "./utils/url";
-
-function bin2hex(buf: ArrayBuffer) {
-  const hex = Array.from(new Uint8Array(buf))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-  return hex;
-}
-
-async function sha256(str: string) {
-  const utf8 = new TextEncoder().encode(str);
-  return bin2hex(await crypto.subtle.digest("SHA-256", utf8));
-}
+import { sha256 } from "./utils/hash";
 
 settings
   .get() // returns *all* settings
