@@ -525,13 +525,22 @@ export class Bookmark extends Document<Record<string, any>> {
 
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>): Bookmark {
+    // handle legacy format: date + count -> visits (c.f. migration_20260311)
+    let visits: number[] = [];
+    if ("visits" in doc.metadata) {
+      visits = doc.metadata["visits"];
+    } else if ("date" in doc.metadata) {
+      const count = doc.metadata["count"] ?? 1;
+      visits = Array(count).fill(doc.metadata["date"]);
+    }
+
     const instance = new Bookmark({
       id: doc.id,
       title: "title" in doc.metadata ? doc.metadata["title"] : null,
       href: "href" in doc.metadata ? doc.metadata["href"] : null,
       host: "host" in doc.metadata ? doc.metadata["host"] : null,
       excerpt: doc.pageContent,
-      visits: "visits" in doc.metadata ? doc.metadata["visits"] : [],
+      visits: visits,
       nrVectors: "nrVectors" in doc.metadata ? doc.metadata["nrVectors"] : null,
     });
     return instance;
