@@ -785,37 +785,41 @@ export async function del(id: string): Promise<void> {
     return dStore.mdelete(ids);
   }
 
-  // find records matching id prefix
-  let records = await index.listPaginated({ prefix: `${id}:` }); // matches hash:[uuid]
-
-  let ids =
-    records.vectors
-      ?.map((item) => item.id)
-      .filter((id): id is string => id !== undefined) || [];
-  while (records.pagination) {
-    records = await index.listPaginated({
-      paginationToken: records.pagination.next,
-    });
-    ids.push(
-      ...(records.vectors
-        ?.map((item) => item.id)
-        .filter((id): id is string => id !== undefined) || []),
-    );
-  }
-
   // remove from vStore
-  const batches = chunkArray(ids, 1000);
-  for (let i = 0; i < batches.length; i++) {
-    await index.deleteMany(batches[i] || []);
-  }
+  await deleteVectors(id)
 
   // remove from dStore
   return dStore.mdelete([id]);
 }
 
 // update bookmark by id
-export async function update(id: string, fields: Record<string, any>): Promise<void> {
-  return dStore.update(id, fields);
+export async function update(
+  id: string,
+  fields: Record<string, any>,
+  options: { text?: string } = {}
+): Promise<void> {
+  if ((options.text !== undefined) && (!retriever)) {
+    throw new Error("Retriever not initialised."); // fail early, update nothing
+  }
+
+  // update bookmark metadata in dStore...
+  if (Object.keys(fields).length > 0) {
+    await dStore.update(id, fields);
+  }
+
+  // ... and vectors in vStore if text is provided
+  if (options.text !== undefined) {
+    const bmk = dStore.store[id];
+    if (!bmk) {
+      throw new Error(`Bookmark ${id} not found.`);
+    }
+
+    // delete existing vectors for this bookmark (if any)...
+    await deleteVectors(id);
+
+    // ... and upsert new vectors
+    await embedAndUpsert(id, { title: bmk.title, text: options.text });
+  }
 }
 
 export async function select(
