@@ -692,6 +692,59 @@ settings.addListener(
   },
 );
 
+// delete vectors from vStore
+async function deleteVectors(id: string): Promise<void> {
+  const vStore = retriever!.vectorstore as PineconeStore; // local ref?
+  const index = vStore.pineconeIndex;
+
+  console.log("deleteVectors: id =", id);
+
+  // find records matching id prefix
+  let records = await index.listPaginated({ prefix: `${id}:` }); // matches hash:[uuid]
+
+  let ids =
+    records.vectors
+      ?.map(v => v.id)
+      .filter((id): id is string => id !== undefined) ?? [];
+
+  while (records.pagination) {
+    records = await index.listPaginated({
+      paginationToken: records.pagination.next
+    });
+    ids.push(
+      ...(records.vectors
+        ?.map(v => v.id)
+        .filter((id): id is string => id !== undefined) ?? [])
+    );
+  }
+
+  console.log("deleteVectors: found", ids.length, "vectors to delete");
+
+  // remove from vStore
+  const batches = chunkArray(ids, 1000);
+  for (const batch of batches) {
+    await index.deleteMany(batch);
+  }
+
+  // update nrVectors in dStore
+  await dStore.update(id, { nrVectors: 0 });
+}
+
+// embed bookmark (title + text) and upsert vectors to vStore
+async function embedAndUpsert(id: string, fields: { title: string, text?: string }): Promise<void> {
+  // create Document(s) for embedding
+  let docs = [new Document({ id, pageContent: fields.title })];
+  if (fields.text) {
+    docs.push(new Document({ id, pageContent: fields.text }));
+  }
+
+  // add to retriever
+  return retriever!.addDocuments(docs, {
+    addToDocstore: false,
+    ids: Array(docs.length).fill(id),
+  });
+}
+
 /*
  * public interface
  */
@@ -708,17 +761,7 @@ export async function add(id: string, fields: any): Promise<void> {
   // add to dStore
   await addBookmark({ [id]: bmk });
 
-  // create Document(s) for embedding
-  let doc = [new Document({ id: id, pageContent: fields.title })];
-  if (fields.text) {
-    doc.push(new Document({ id: id, pageContent: fields.text }));
-  }
-
-  // add to retriever
-  return retriever.addDocuments(doc, {
-    addToDocstore: false,
-    ids: Array(doc.length).fill(id),
-  });
+  return embedAndUpsert(id, fields);
 }
 
 // delete bookmark by id
@@ -993,7 +1036,7 @@ export async function rename(oldId: string, newId: string): Promise<void> {
     return;
   }
 
-  const vStore = retriever.vectorstore as PineconeStore;
+  const vStore = retriever!.vectorstore as PineconeStore;
   const index = vStore.pineconeIndex;
 
   // collect all old vector ids
@@ -1036,7 +1079,7 @@ export async function rename(oldId: string, newId: string): Promise<void> {
       });
     }
 
-    // delete old vectors
+    // delete old vectors (could be a call to deleteVectors(), but we already have oldvectorIds here)
     const deleteBatches = chunkArray(oldVectorIds, 1000);
     for (const batch of deleteBatches) {
       await index.deleteMany(batch);
