@@ -15,7 +15,7 @@ import { sha256 } from "./utils/hash";
 // 
 // used to distinguish reindex requests from normal add-bookmark
 // requests in the message handler
-const reindexing = new Map<number, () => void>();
+const reindexing = new Map<number, { resolve: () => void, reject: (err: Error) => void }>();
 
 settings
   .get() // returns *all* settings
@@ -126,35 +126,39 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
             bmk = (await retriever.select(b => b.id === rawHash, 1))[0] as Bookmark;
             if (!bmk) {
               // should never end up here... this path shouldn't be taken without a bookmark to reindex
-              console.warn("Reindex: bookmark not found for either hash:", normHash, rawHash);
-              const resolve = reindexing.get(sender.tab!.id!);
-              if (resolve) resolve();
+              // console.warn("Reindex: bookmark not found for either hash:", normHash, rawHash);
+              const p = reindexing.get(sender.tab!.id!);
+              if (p) p.reject(new Error("Reindex: bookmark not found."));
               return;
-
-              // FIXME: maybe this should be an error? 
             }
           }
 
           if (!bmk.id) {
             // should never end up here... no bookmark should be without an id!
-            console.warn("Reindex: bookmark has no id!");
-            const resolve = reindexing.get(sender.tab!.id!);
-            if (resolve) resolve();
+            // console.warn("Reindex: bookmark has no id!");
+            const p = reindexing.get(sender.tab!.id!);
+            if (p) p.reject(new Error("Reindex: bookmark has no id."));
             return;
           }
 
-          // note: race condition possible here — if the maintenance task renames this
-          // bookmark (rawHash -> normHash) while embedding is in progress, update() will
-          // reinstate the bookmark under rawHash. The maintenance task will detect and
-          // merge the duplicate on its next run, with a possible visit double-count.
-          await retriever.update(bmk.id, {
-            title: info.title,
-            excerpt: info.excerpt,
-            host: info.host, // should we be updating this? could it be different?
-          }, { text: info.text });
+          try {
+            // note: race condition possible here — if the maintenance task renames this
+            // bookmark (rawHash -> normHash) while embedding is in progress, update() will
+            // reinstate the bookmark under rawHash. The maintenance task will detect and
+            // merge the duplicate on its next run, with a possible visit double-count.
+          
+            await retriever.update(bmk.id, {
+              title: info.title,
+              excerpt: info.excerpt,
+              host: info.host, // should we be updating this? could it be different?
+            }, { text: info.text });
 
-          const resolve = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
-          if (resolve) resolve();
+            const p = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
+            if (p) p.resolve();
+          } catch (err) {
+            const p = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
+            if (p) p.reject(err instanceof Error ? err : new Error(String(err)));
+          }
 
           return;
         }
@@ -230,9 +234,13 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       break;
 
     case "reindex-bookmark": {
-      // this is a request from the dashboard to reindex a bookmark — we open a new tab to trigger the content script,
-      // then wait for the add-bookmark message to know when it's done... we need to "await" the add-bookmark handler, so
-      // wrap this in a async function
+      // this is a request from the the popup to reindex a bookmark — we open a new tab to trigger
+      // the content script, then wait for handling of the ensuing add-bookmark message to indicate
+      // when it's done...
+      // 
+      // we need to "await" the add-bookmark handler, but making the listener itself async breaks Chrome's
+      // message channel handline... the workaround is to wrap this in an async immediately invoked
+      // function expression (IIFE)
       (async () => {
         const info = message.payload;
         console.log("Reindexing bookmark:", info.id);   
@@ -254,8 +262,17 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // register resolve callback before injecting — avoids a race where
         // add-bookmark fires before the promise is registered
-        const done = new Promise<void>((resolve) => {
-          reindexing.set(tabId_, resolve);
+        // const done = new Promise<void>((resolve) => {
+        //   reindexing.set(tabId_, resolve);
+        // });
+        const TIMEOUT_MS = 60000; // 60s timeout
+        let timeout: ReturnType<typeof setTimeout>;
+
+        const done = new Promise<void>((resolve, reject) => {
+          reindexing.set(tabId_, { resolve, reject });
+          timeout = setTimeout(() => {
+            reject(new Error(`Reindex timed out after ${TIMEOUT_MS / 1000}s`));
+          }, TIMEOUT_MS);
         });
 
         // wait for tab to finish loading
@@ -266,7 +283,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
               resolve();
             }
           });
-        });   
+        });
 
         // inject the content script manually (tab may not match include patterns)
         // await chrome.scripting.executeScript({
@@ -275,12 +292,17 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         // });
 
         // the content script will send an add-bookmark message (handled above)... here
-        // wait for the add-bookmark message to be processed, then clean up
-        await done;
-
-        reindexing.delete(tabId_);
-        await chrome.tabs.remove(tabId_);
-        sendResponse({ type: "result", payload: null });
+        // wait for it to be processed, then clean up
+        try {
+          await done;
+          sendResponse({ type: "result", payload: null });
+        } catch (err) {
+          sendResponse({ type: "error", payload: err as Error });
+        } finally {
+          clearTimeout(timeout!);
+          reindexing.delete(tabId_);
+          await chrome.tabs.remove(tabId_);
+        }
       })().catch(err => {
         sendResponse({ type: "error", payload: err as Error });
       });
