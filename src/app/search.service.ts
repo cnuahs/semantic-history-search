@@ -23,6 +23,28 @@ export class SearchService {
     chrome.runtime.sendMessage(msg);
   }
 
+  async reindex(id: string, href: string): Promise<void> {
+    // request tabs permission if not already granted
+    const granted = await chrome.permissions.request({ permissions: ['tabs'] });
+    if (!granted) {
+      throw new Error("tabs permission not granted");
+    }
+
+    const msg = {
+      type: "reindex-bookmark",
+      payload: {
+        id: id,
+        href: href
+      }
+    };
+
+    return chrome.runtime.sendMessage(msg).then((response) => {
+      if (!response || response.type !== "result") {
+        throw new Error("Unexpected response from service worker.");
+      }
+    });
+  }
+
   async search(query: string): Promise<any[]> {
     // console.log('SearchService: Searching for:', query);
 
