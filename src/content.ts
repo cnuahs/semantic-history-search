@@ -15,9 +15,12 @@ if (isProbablyReaderable(document)) {
 // FIXME: do we want to discard the markup? Couldn't we use that for splitting the text?
 // FIXME: how do we handle PDFs?
 
+const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+
 const msg = {
   type: "add-bookmark",
   payload: {
+    status: navEntry?.responseStatus ?? 0,
     title: document.title,
     href: document.location.href,
     host: document.location.host,
