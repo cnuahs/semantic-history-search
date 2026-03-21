@@ -23,7 +23,7 @@ export class SearchService {
     chrome.runtime.sendMessage(msg);
   }
 
-  async reindex(id: string, href: string): Promise<void> {
+  async refresh(id: string, href: string): Promise<void> {
     // request tabs permission if not already granted
     const granted = await chrome.permissions.request({ permissions: ['tabs'] });
     if (!granted) {
@@ -31,7 +31,7 @@ export class SearchService {
     }
 
     const msg = {
-      type: "reindex-bookmark",
+      type: "refresh-bookmark",
       payload: {
         id: id,
         href: href

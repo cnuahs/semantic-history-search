@@ -16,7 +16,7 @@ export class ResultsComponent {
 
   @Input() isLoading: boolean = false;
 
-  reindexing = new Set<string>(); // set of bookmark ids currently being reindexed
+  pending = new Set<string>(); // set of bookmark ids currently pending (e.g., being refreshed)
 
   get nrUnique(): number { // number of unique pages in this.results
     return new Set(this.results.map((r) => r.id)).size;
@@ -26,28 +26,25 @@ export class ResultsComponent {
     private searchService: SearchService,
     private cdr: ChangeDetectorRef) {
     // injects SearchService as this.searchService
-    // injects ChangeDetectorRef as this.cdr (used to trigger change detection before/after reindexing)
+    // injects ChangeDetectorRef as this.cdr (used to trigger change detection before/after refreshing)
   }
 
-  async reindexResult(id: string, href: string) {
-    this.reindexing.add(id);
+  async refreshResult(id: string, href: string) {
+    this.pending.add(id);
 
     this.cdr.markForCheck();
 
     try {
-      await this.searchService.reindex(id, href);
+      await this.searchService.refresh(id, href);
 
       // update nrVectors optimistically — actual count will reconcile later
       const item = this.results.find(r => r.id === id);
       if (item) item.nrVectors = null; // null triggers reconciliation in maintenance task
-
-      // this.reindexing.delete(id);
     } catch (err) {
-      console.error("Reindex failed:", err);
-      // this.reindexing.delete(id);
+      console.error("Refresh failed:", err);
     }
 
-    this.reindexing.delete(id);
+    this.pending.delete(id);
 
     this.cdr.markForCheck();
   }

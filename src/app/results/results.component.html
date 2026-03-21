@@ -29,8 +29,8 @@
 
             <!-- right: icons, fixed size, never grow or shrink -->
             <!-- @if (item.nrVectors === 0) { -->
-              <div class="justify-items-end" (click)="reindexResult(item.id, item.url)">
-                @if (reindexing.has(item.id)) {
+              <div class="justify-items-end" (click)="refreshResult(item.id, item.url)">
+                @if (pending.has(item.id)) {
                   <!-- refresh/reindex icon -->
                   <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/arrow-path.svg -->
                   <!-- prettier-ignore -->
