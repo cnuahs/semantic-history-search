@@ -111,6 +111,19 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
       const force = sender.tab?.id !== undefined && reindexing.has(sender.tab.id); // force embedding/upserting
 
+      // drop non-200 responses entirely
+      if (info.status !== 200) {
+        console.log("Dropping non-200 page (status %d): %s", info.status, info.href);
+        if (force) {
+          // preserve existing bookmark intact — a non-200 on refresh is not an error
+          const p = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
+          if (p) p.reject(new Error(`Page load failed: page returned HTTP ${info.status}`));
+        }
+        return false;
+      }
+
+
+
       // calculate hash of .href to use as the bookmark id
       Promise.all([
         sha256(normalize(info.href)),
@@ -122,7 +135,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
           // reindex path — update metadata, embed, upsert (preserve visits etc.)
           let bmk = (await retriever.select(b => b.id === normHash, 1))[0] as Bookmark;
           if (!bmk) {
-            // look for the bokmark under rewHash (legacy)
+            // look for the bookmark under rawHash (legacy)
             bmk = (await retriever.select(b => b.id === rawHash, 1))[0] as Bookmark;
             if (!bmk) {
               // should never end up here... this path shouldn't be taken without a bookmark to reindex
