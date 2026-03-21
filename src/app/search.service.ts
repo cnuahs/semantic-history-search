@@ -72,7 +72,10 @@ export class SearchService {
                   : [],
                 nrVectors: "nrVectors" in result.metadata
                   ? result.metadata["nrVectors"]
-                  : 99,
+                  : null,
+                indexed: "indexed" in result.metadata
+                  ? result.metadata["indexed"]
+                  : false,
                 id: result.id,
               }));
 
