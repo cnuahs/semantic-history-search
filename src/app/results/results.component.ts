@@ -1,4 +1,4 @@
-import { Component, Input, ChangeDetectionStrategy, ChangeDetectorRef } from "@angular/core";
+import { Component, Input, Output, EventEmitter, ChangeDetectionStrategy, ChangeDetectorRef } from "@angular/core";
 import { SlicePipe, DatePipe } from "@angular/common";
 
 import { SearchService } from "../search.service";
@@ -15,6 +15,8 @@ export class ResultsComponent {
   @Input() mode: 'history' | 'search' = 'history';
 
   @Input() isLoading: boolean = false;
+  @Input() showUnindexed: boolean = false;
+  @Output() showUnindexedChange = new EventEmitter<boolean>();
 
   pending = new Set<string>(); // set of bookmark ids currently pending (e.g., being refreshed)
 

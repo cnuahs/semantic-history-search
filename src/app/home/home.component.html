@@ -52,6 +52,6 @@
     </div>
   </div>
   <div class="w-full justify-items-center bg-slate-100 grow">
-    <app-results [results]="results" [mode]="mode" [isLoading]="isLoading"></app-results>
+    <app-results [results]="results" [mode]="mode" [isLoading]="isLoading" [(showUnindexed)]="showUnindexed" (showUnindexedChange)="handleSearch()"></app-results>
   </div>
 </div>
