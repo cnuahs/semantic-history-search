@@ -122,8 +122,6 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         return false;
       }
 
-
-
       // calculate hash of .href to use as the bookmark id
       Promise.all([
         sha256(normalize(info.href)),
@@ -132,7 +130,16 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         console.log("SHA256 (normalised): %s", normHash);
 
         if (force) {
-          // refresh path — update metadata, embed, upsert (preserve visits etc.)
+          // refresh path
+          
+          // 200 but non-readerable — preserve bookmark intact
+          if (!info.text) {
+            const p = refreshing.get(sender.tab!.id!);
+            if (p) p.resolve(); // not an error, just no new/usable information... nothing to update
+            return;
+          }
+          
+          // update metadata, embed, upsert (preserve visits etc.)
           let bmk = (await retriever.select(b => b.id === normHash, 1))[0] as Bookmark;
           if (!bmk) {
             // look for the bookmark under rawHash (legacy)

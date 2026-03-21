@@ -66,7 +66,7 @@ export class ScoredParentDocumentRetriever extends ParentDocumentRetriever {
     if (isUpdatable(this.docstore)) {
       const existing = (this.docstore as any).store?.[parentDocId];
       const nrVectors = (existing as any)?.metadata?.nrVectors ?? 0;
-      await this.docstore.update(parentDocId, { nrVectors: nrVectors + childDocs.length });
+      await this.docstore.update(parentDocId, { nrVectors: nrVectors + childDocs.length, indexed: true });
     }
   }
 }
