@@ -72,6 +72,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.scores.filter(s => s.score < this.purgeThreshold).length;
   }
 
+  get nrIndexed(): number {
+    return this.bookmarks.filter((b: any) => b.indexed).length;
+  }
+
   // histogram
 
   get logThreshold(): number { return Math.log10(Math.max(this.purgeThreshold, 1e-6)); }
