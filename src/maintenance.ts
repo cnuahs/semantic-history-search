@@ -28,8 +28,14 @@ async function reconcileVectorCounts(): Promise<number> {
   await Promise.all(
     bmks.map(async (bmk) => {
       const count = await retriever.getNrVectors(bmk.id!);
-      await retriever.update(bmk.id!, { nrVectors: count, indexed: count > 1 });
-      console.log(`Reconciled ${bmk.id}: nrVectors = ${count}, indexed = ${count > 1}`);
+      if (!bmk.indexed && count > 0) {
+        // non-indexed bookmark with residual vectors — clean up Pinecone
+        await retriever.del(bmk.id!, { vectorsOnly: true });
+        console.log(`Cleaned up non-indexed bookmark ${bmk.id}: deleted ${count} vectors`);
+      } else {
+        await retriever.update(bmk.id!, { nrVectors: count, indexed: count > 1 });
+        console.log(`Reconciled ${bmk.id}: nrVectors = ${count}, indexed = ${count > 1}`);
+      }
     })
   );
 

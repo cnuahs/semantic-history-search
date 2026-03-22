@@ -735,8 +735,8 @@ async function deleteVectors(id: string): Promise<void> {
     await index.deleteMany(batch);
   }
 
-  // update nrVectors in dStore
-  await dStore.update(id, { nrVectors: 0 });
+  // update nrVectors and indexed in dStore
+  await dStore.update(id, { nrVectors: 0, indexed: false });
 }
 
 // embed bookmark (title + text) and upsert vectors to vStore
@@ -778,7 +778,7 @@ export async function add(id: string, fields: any): Promise<void> {
 }
 
 // delete bookmark by id
-export async function del(id: string): Promise<void> {
+export async function del(id: string, options: { vectorsOnly?: boolean } = {}): Promise<void> {
   if (!retriever) {
     throw new Error("Retriever not initialised.");
   }
@@ -790,6 +790,8 @@ export async function del(id: string): Promise<void> {
     // remove *all* records from vStore
     await index.deleteAll();
 
+    if (options.vectorsOnly) return;
+
     // remove *all* records from dStore
     const ids = [];
     for await (const id of dStore.yieldKeys()) {
@@ -799,7 +801,9 @@ export async function del(id: string): Promise<void> {
   }
 
   // remove from vStore
-  await deleteVectors(id)
+  await deleteVectors(id);
+
+  if (options.vectorsOnly) return;
 
   // remove from dStore
   return dStore.mdelete([id]);
