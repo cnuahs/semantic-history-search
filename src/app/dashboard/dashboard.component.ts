@@ -62,14 +62,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // frecency
-  halfLifeDays: number = 30;
-  scores: { id: string, score: number }[] = [];
+  indexedHalfLifeDays: number = 30;
+  unindexedHalfLifeDays: number = 14;
+  scores: { id: string, score: number, indexed: boolean }[] = [];
 
   // purge threshold
   purgeThreshold: number = 0.1;
 
   get nrFlagged(): number {
     return this.scores.filter(s => s.score < this.purgeThreshold).length;
+  }
+
+  get nrIndexed(): number {
+    return this.bookmarks.filter((b: any) => b.indexed).length;
   }
 
   // histogram
@@ -94,13 +99,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     Promise.all([
       this.settingsService.get('purge-threshold'),
-      this.settingsService.get('frecency-half-life'),
-    ]).then(([purgeSettings, halfLifeSettings]) => {
+      this.settingsService.get('indexed-half-life'),
+      this.settingsService.get('unindexed-half-life'),
+    ]).then(([purgeSettings, halfLifeSettings, unindexedHalfLifeSettings]) => {
       const purgeSetting = Array.isArray(purgeSettings) ? purgeSettings[0] : purgeSettings;
       this.purgeThreshold = Number(purgeSetting?.value) || 0.1;
 
-      const halfLifeSetting = Array.isArray(halfLifeSettings) ? halfLifeSettings[0] : halfLifeSettings;
-      this.halfLifeDays = Number(halfLifeSetting?.value) || 30;
+      const indexedHalfLifeSetting = Array.isArray(halfLifeSettings) ? halfLifeSettings[0] : halfLifeSettings;
+      this.indexedHalfLifeDays = Number(indexedHalfLifeSetting?.value) || 30;
+
+      const unindexedHalfLifeSetting = Array.isArray(unindexedHalfLifeSettings) ? unindexedHalfLifeSettings[0] : unindexedHalfLifeSettings;
+      this.unindexedHalfLifeDays = Number(unindexedHalfLifeSetting?.value) || 14;
 
       return this.searchService.search('');
     }).then((bookmarks: any[]) => {
@@ -260,8 +269,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .attr('d', line);
   }
 
-  private frecency(visits: number[]): number {
-    const lambda = Math.log(2) / this.halfLifeDays;
+  private frecency(visits: number[], halfLifeDays: number = this.indexedHalfLifeDays): number {
+    const lambda = Math.log(2) / halfLifeDays;
     const now = Date.now();
     return visits.reduce((score, visit) => {
       const daysAgo = (now - visit) / (1000 * 60 * 60 * 24);
@@ -272,7 +281,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private computeScores() {
     this.scores = this.bookmarks.map((b: any) => ({
       id: b.id,
-      score: this.frecency(b.visits),
+      score: this.frecency(b.visits, b.indexed ? this.indexedHalfLifeDays : this.unindexedHalfLifeDays),
+      indexed: b.indexed,
     }));
   }
 
@@ -310,10 +320,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .domain([Math.max(minScore, 1e-6), maxScore])
       .thresholds(thresholds);
 
-    const bins = binner(scores);
+    const indexedScores = scores.filter((_, i) => this.scores[i].indexed);
+    const unindexedScores = scores.filter((_, i) => !this.scores[i].indexed);
+
+    const indexedBins = binner(indexedScores);
+    const unindexedBins = binner(unindexedScores);
 
     const yScale = d3.scaleLinear()
-      .domain([0, d3.max(bins, b => b.length) as number])
+      .domain([0, d3.max([...indexedBins, ...unindexedBins], b => b.length) as number])
       .range([height, 0]);
 
     // axes — ticks at powers of 10 within the domain
@@ -340,16 +354,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .call(d3.axisLeft(yScale).ticks(4))
       .attr('color', '#cbd5e1');
 
-    // bars
-    svg.selectAll('rect')
-      .data(bins)
+    // bars — unindexed (slate, drawn first so indexed appears on top)
+    svg.selectAll('rect.unindexed')
+      .data(unindexedBins)
       .enter()
       .append('rect')
+      .attr('class', 'unindexed')
       .attr('x', b => xScale(Math.max(b.x0 as number, 1e-6)))
       .attr('width', b => Math.max(0, xScale(b.x1 as number) - xScale(Math.max(b.x0 as number, 1e-6)) - 1))
       .attr('y', b => yScale(b.length))
       .attr('height', b => height - yScale(b.length))
-      .attr('fill', b => (b.x0 as number) < this.purgeThreshold ? '#f87171' : '#22d3ee');
+      .attr('fill', b => (b.x0 as number) < this.purgeThreshold ? '#fca5a5' : '#94a3b8')
+      .attr('opacity', 0.7);
+
+    // bars — indexed (cyan, drawn on top)
+    svg.selectAll('rect.indexed')
+      .data(indexedBins)
+      .enter()
+      .append('rect')
+      .attr('class', 'indexed')
+      .attr('x', b => xScale(Math.max(b.x0 as number, 1e-6)))
+      .attr('width', b => Math.max(0, xScale(b.x1 as number) - xScale(Math.max(b.x0 as number, 1e-6)) - 1))
+      .attr('y', b => yScale(b.length))
+      .attr('height', b => height - yScale(b.length))
+      .attr('fill', b => (b.x0 as number) < this.purgeThreshold ? '#f87171' : '#22d3ee')
+      .attr('opacity', 0.7);
 
     // threshold marker
     svg.append('line')
@@ -445,8 +474,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.settingsService.get().then((settings) => {
       const all = Array.isArray(settings) ? settings : [settings];
 
-      const halfLife = all.find(s => s.name === 'frecency-half-life');
-      if (halfLife) halfLife.value = this.halfLifeDays;
+      const indexedHalfLife = all.find(s => s.name === 'indexed-half-life');
+      if (indexedHalfLife) indexedHalfLife.value = this.indexedHalfLifeDays;
+
+      const unindexedHalfLife = all.find(s => s.name === 'unindexed-half-life');
+      if (unindexedHalfLife) unindexedHalfLife.value = this.unindexedHalfLifeDays;
 
       const purge = all.find(s => s.name === 'purge-threshold');
       if (purge) purge.value = this.purgeThreshold;

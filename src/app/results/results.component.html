@@ -2,6 +2,25 @@
   <div class="w-full text-lg text-slate-400 uppercase flex">
     @if (mode === 'history') {
       <span class="grow">History</span>
+      <!-- <span class="text-sm text-slate-400 flex items-center gap-1">
+        <input type="checkbox" [checked]="showUnindexed" (change)="showUnindexedChange.emit(!showUnindexed)" class="accent-cyan-500" />
+        <span>Show all</span>
+      </span> -->
+      <span class="text-slate-400 flex items-center gap-2 mr-3">
+        <span>Show all</span>
+        <button
+          class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+          [class.bg-cyan-500]="showUnindexed"
+          [class.bg-slate-300]="!showUnindexed"
+          (click)="showUnindexedChange.emit(!showUnindexed)"
+        >
+          <span
+            class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
+            [class.translate-x-5]="showUnindexed"
+            [class.translate-x-1]="!showUnindexed"
+          ></span>
+        </button>
+      </span>
       <span>{{ results.length }} visits · {{ nrUnique }} pages</span>
     } @else {
       <span class="grow">Results</span>
@@ -29,8 +48,8 @@
 
             <!-- right: icons, fixed size, never grow or shrink -->
             <!-- @if (item.nrVectors === 0) { -->
-              <div class="justify-items-end" (click)="reindexResult(item.id, item.url)">
-                @if (reindexing.has(item.id)) {
+              <div class="justify-items-end" (click)="refreshResult(item.id, item.url)">
+                @if (pending.has(item.id)) {
                   <!-- refresh/reindex icon -->
                   <!-- https://cdn.jsdelivr.net/npm/heroicons@2.1.3/24/outline/arrow-path.svg -->
                   <!-- prettier-ignore -->

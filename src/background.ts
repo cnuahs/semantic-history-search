@@ -11,11 +11,11 @@ import { getMeta, setMeta } from "./db";
 import { normalize } from "./utils/url";
 import { sha256 } from "./utils/hash";
 
-// track tabs opened by us for reindexing
+// track tabs opened by us for refreshing
 // 
-// used to distinguish reindex requests from normal add-bookmark
+// used to distinguish refress requests from normal add-bookmark
 // requests in the message handler
-const reindexing = new Map<number, { resolve: () => void, reject: (err: Error) => void }>();
+const refreshing = new Map<number, { resolve: () => void, reject: (err: Error) => void }>();
 
 settings
   .get() // returns *all* settings
@@ -109,7 +109,18 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       const info = message.payload;
       console.log("Host:", info.host);
 
-      const force = sender.tab?.id !== undefined && reindexing.has(sender.tab.id); // force embedding/upserting
+      const force = sender.tab?.id !== undefined && refreshing.has(sender.tab.id); // force embedding/upserting
+
+      // drop non-200 responses entirely
+      if (info.status !== 200) {
+        console.log("Dropping non-200 page (status %d): %s", info.status, info.href);
+        if (force) {
+          // preserve existing bookmark intact — a non-200 on refresh is not an error
+          const p = sender.tab?.id !== undefined ? refreshing.get(sender.tab.id) : undefined;
+          if (p) p.reject(new Error(`Page load failed: page returned HTTP ${info.status}`));
+        }
+        return false;
+      }
 
       // calculate hash of .href to use as the bookmark id
       Promise.all([
@@ -119,25 +130,34 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         console.log("SHA256 (normalised): %s", normHash);
 
         if (force) {
-          // reindex path — update metadata, embed, upsert (preserve visits etc.)
+          // refresh path
+          
+          // 200 but non-readerable — preserve bookmark intact
+          if (!info.text) {
+            const p = refreshing.get(sender.tab!.id!);
+            if (p) p.resolve(); // not an error, just no new/usable information... nothing to update
+            return;
+          }
+          
+          // update metadata, embed, upsert (preserve visits etc.)
           let bmk = (await retriever.select(b => b.id === normHash, 1))[0] as Bookmark;
           if (!bmk) {
-            // look for the bokmark under rewHash (legacy)
+            // look for the bookmark under rawHash (legacy)
             bmk = (await retriever.select(b => b.id === rawHash, 1))[0] as Bookmark;
             if (!bmk) {
-              // should never end up here... this path shouldn't be taken without a bookmark to reindex
+              // should never end up here... this path shouldn't be taken without a bookmark to refresh
               // console.warn("Reindex: bookmark not found for either hash:", normHash, rawHash);
-              const p = reindexing.get(sender.tab!.id!);
-              if (p) p.reject(new Error("Reindex: bookmark not found."));
+              const p = refreshing.get(sender.tab!.id!);
+              if (p) p.reject(new Error("Refresh: bookmark not found."));
               return;
             }
           }
 
           if (!bmk.id) {
             // should never end up here... no bookmark should be without an id!
-            // console.warn("Reindex: bookmark has no id!");
-            const p = reindexing.get(sender.tab!.id!);
-            if (p) p.reject(new Error("Reindex: bookmark has no id."));
+            // console.warn("Refresh: bookmark has no id!");
+            const p = refreshing.get(sender.tab!.id!);
+            if (p) p.reject(new Error("Refresh: bookmark has no id."));
             return;
           }
 
@@ -153,10 +173,10 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
               host: info.host, // should we be updating this? could it be different?
             }, { text: info.text });
 
-            const p = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
+            const p = sender.tab?.id !== undefined ? refreshing.get(sender.tab.id) : undefined;
             if (p) p.resolve();
           } catch (err) {
-            const p = sender.tab?.id !== undefined ? reindexing.get(sender.tab.id) : undefined;
+            const p = sender.tab?.id !== undefined ? refreshing.get(sender.tab.id) : undefined;
             if (p) p.reject(err instanceof Error ? err : new Error(String(err)));
           }
 
@@ -233,8 +253,8 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
       break;
 
-    case "reindex-bookmark": {
-      // this is a request from the the popup to reindex a bookmark — we open a new tab to trigger
+    case "refresh-bookmark": {
+      // this is a request from the the popup to refresh a bookmark — we open a new tab to trigger
       // the content script, then wait for handling of the ensuing add-bookmark message to indicate
       // when it's done...
       // 
@@ -243,7 +263,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       // function expression (IIFE)
       (async () => {
         const info = message.payload;
-        console.log("Reindexing bookmark:", info.id);   
+        console.log("Refreshing bookmark:", info.id);   
 
         const hasPermission = await chrome.permissions.contains({ permissions: ['tabs'] });
         if (!hasPermission) {
@@ -262,16 +282,13 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // register resolve callback before injecting — avoids a race where
         // add-bookmark fires before the promise is registered
-        // const done = new Promise<void>((resolve) => {
-        //   reindexing.set(tabId_, resolve);
-        // });
         const TIMEOUT_MS = 60000; // 60s timeout
         let timeout: ReturnType<typeof setTimeout>;
 
         const done = new Promise<void>((resolve, reject) => {
-          reindexing.set(tabId_, { resolve, reject });
+          refreshing.set(tabId_, { resolve, reject });
           timeout = setTimeout(() => {
-            reject(new Error(`Reindex timed out after ${TIMEOUT_MS / 1000}s`));
+            reject(new Error(`Refresh timed out after ${TIMEOUT_MS / 1000}s`));
           }, TIMEOUT_MS);
         });
 
@@ -300,7 +317,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
           sendResponse({ type: "error", payload: err as Error });
         } finally {
           clearTimeout(timeout!);
-          reindexing.delete(tabId_);
+          refreshing.delete(tabId_);
           await chrome.tabs.remove(tabId_);
         }
       })().catch(err => {

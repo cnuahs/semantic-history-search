@@ -468,6 +468,7 @@ export class Bookmark extends Document<Record<string, any>> {
       host: fields.host ? fields.host : null,
       visits: fields.visits ? fields.visits : [],
       nrVectors: fields.nrVectors ?? null,
+      indexed: fields.indexed ?? false,
     };
     this.pageContent = fields.excerpt ? fields.excerpt : "";
     this.id = fields.id ? fields.id : null;
@@ -523,6 +524,13 @@ export class Bookmark extends Document<Record<string, any>> {
     this.metadata["nrVectors"] = value;
   }
 
+  get indexed(): boolean {
+    return this.metadata["indexed"] ?? false;
+  }
+  set indexed(value: boolean) {
+    this.metadata["indexed"] = value;
+  }
+
   // static factory method(s)
   static fromDocument(doc: Document<Record<string, any>>): Bookmark {
     // handle legacy format: date + count -> visits (c.f. migration_20260311)
@@ -542,6 +550,7 @@ export class Bookmark extends Document<Record<string, any>> {
       excerpt: doc.pageContent,
       visits: visits,
       nrVectors: "nrVectors" in doc.metadata ? doc.metadata["nrVectors"] : null,
+      indexed: "indexed" in doc.metadata ? doc.metadata["indexed"] : true, // default: true (existing Bookmarks without .indexed are assumed to be indexed)
     });
     return instance;
   }
@@ -726,8 +735,8 @@ async function deleteVectors(id: string): Promise<void> {
     await index.deleteMany(batch);
   }
 
-  // update nrVectors in dStore
-  await dStore.update(id, { nrVectors: 0 });
+  // update nrVectors and indexed in dStore
+  await dStore.update(id, { nrVectors: 0, indexed: false });
 }
 
 // embed bookmark (title + text) and upsert vectors to vStore
@@ -761,11 +770,15 @@ export async function add(id: string, fields: any): Promise<void> {
   // add to dStore
   await addBookmark({ [id]: bmk });
 
+  if (!fields.text) {
+    return; // non-readerable — store locally only, skip embedding
+  }
+
   return embedAndUpsert(id, fields);
 }
 
 // delete bookmark by id
-export async function del(id: string): Promise<void> {
+export async function del(id: string, options: { vectorsOnly?: boolean } = {}): Promise<void> {
   if (!retriever) {
     throw new Error("Retriever not initialised.");
   }
@@ -777,6 +790,8 @@ export async function del(id: string): Promise<void> {
     // remove *all* records from vStore
     await index.deleteAll();
 
+    if (options.vectorsOnly) return;
+
     // remove *all* records from dStore
     const ids = [];
     for await (const id of dStore.yieldKeys()) {
@@ -786,7 +801,9 @@ export async function del(id: string): Promise<void> {
   }
 
   // remove from vStore
-  await deleteVectors(id)
+  await deleteVectors(id);
+
+  if (options.vectorsOnly) return;
 
   // remove from dStore
   return dStore.mdelete([id]);

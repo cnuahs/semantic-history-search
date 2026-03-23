@@ -25,7 +25,8 @@ const _defaults = {
   "history-limit-days": {},
   "search-result-limit": {},
   "search-similarity-threshold": {},
-  "frecency-half-life": {},
+  "indexed-half-life": {},
+  "unindexed-half-life": {},
   "purge-threshold": {},
 };
 
@@ -59,9 +60,40 @@ validate(_defaults); // note: modifies _defaults in place
 
 // helper for chrome.storage.sync (used to store settings)
 const syncCache = { settings: _defaults };
+
+// settings migrations — run in sequence in initSyncCache (below), before any get() or set() calls
+// each migration is idempotent — safe to run multiple times
+
+// 001: rename frecency-half-life -> indexed-half-life
+function migration_001(settings: any): any {
+  if (settings['frecency-half-life'] !== undefined && settings['indexed-half-life'] === undefined) {
+    settings['indexed-half-life'] = { ...settings['frecency-half-life'] };
+    delete settings['frecency-half-life'];
+    console.log('Settings migration 001: frecency-half-life -> indexed-half-life');
+  }
+  return settings;
+}
+
+// add future migrations here, e.g.:
+// function migration_002(settings: any): any { ... }
+
+function migrate(settings: any): any {
+  settings = migration_001(settings);
+  // settings = settingsMigration_002(settings);
+  return settings;
+}
+
 const initSyncCache = chrome.storage.sync.get().then((items) => {
   // copy all items to syncCache
   Object.assign(syncCache, items);
+
+  // run migrations before any validation
+  const migrated = migrate(syncCache.settings);
+  if (migrated !== syncCache.settings) {
+    syncCache.settings = migrated;
+    chrome.storage.sync.set(syncCache);
+    console.log('Settings migrated and saved.');
+  }
 });
 
 const callbacks: {

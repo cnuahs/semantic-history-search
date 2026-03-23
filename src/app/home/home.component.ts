@@ -20,6 +20,8 @@ export class HomeComponent implements OnInit {
 
   historyLimitDays: number = 90; // limit (in days) on history displayed in the history view (configurable via settings)
 
+  showUnindexed: boolean = false; // show only indexed bookmarks by default
+
   isLoading: boolean = true;
 
   private binFn(timestamp: number): string {
@@ -56,6 +58,7 @@ export class HomeComponent implements OnInit {
       .search('')
       .then((bookmarks) => {
         this.results = bookmarks
+          .filter((item: any) => this.showUnindexed || item.indexed)
           .flatMap((item: any) =>
             item.visits
               .filter((timestamp: number) => timestamp >= cutoff)

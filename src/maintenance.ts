@@ -15,7 +15,7 @@ const ALARM_INTERVAL_MINUTES = 1;
 // returns the number of bookmarks updated (0 = backfill complete)
 async function reconcileVectorCounts(): Promise<number> {
   const bmks = await retriever.select(
-    (bmk) => bmk.nrVectors === null,
+    (bmk) => bmk.nrVectors === null || (!bmk.indexed && bmk.nrVectors !== 0),
     BATCH_SIZE,
   );
 
@@ -28,8 +28,14 @@ async function reconcileVectorCounts(): Promise<number> {
   await Promise.all(
     bmks.map(async (bmk) => {
       const count = await retriever.getNrVectors(bmk.id!);
-      await retriever.update(bmk.id!, { nrVectors: count });
-      console.log(`Reconciled ${bmk.id}: nrVectors = ${count}`);
+      if (!bmk.indexed && count > 0) {
+        // non-indexed bookmark with residual vectors — clean up Pinecone
+        await retriever.del(bmk.id!, { vectorsOnly: true });
+        console.log(`Cleaned up non-indexed bookmark ${bmk.id}: deleted ${count} vectors`);
+      } else {
+        await retriever.update(bmk.id!, { nrVectors: count, indexed: count > 1 });
+        console.log(`Reconciled ${bmk.id}: nrVectors = ${count}, indexed = ${count > 1}`);
+      }
     })
   );
 

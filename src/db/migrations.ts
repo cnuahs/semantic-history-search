@@ -133,6 +133,36 @@ async function migration_20260317(db: PouchDB.Database): Promise<void> {
   await db.put({ _id: key });
 }
 
+// 2026-03-21: set indexed field based on nrVectors
+async function migration_20260321(db: PouchDB.Database): Promise<void> {
+  const key = 'migration_20260321';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
+
+  const result = await db.allDocs({ include_docs: true });
+  await Promise.all(
+    result.rows
+      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+      .map((row) => {
+        return db.upsert(row.id, (existing: any) => ({
+          ...existing,
+          metadata: {
+            ...existing.metadata,
+            // != null catches both null and undefined (nrVectors may be absent pre-migration)
+            indexed: existing.metadata?.nrVectors != null && existing.metadata?.nrVectors > 1,
+          },
+        }));
+      })
+  );
+
+  await db.put({ _id: key });
+  console.log('Migration 20260321 complete.');
+}
+
 // Add migrations here, e.g.:
 // YYYY-MM-DD: <description>
 // async function migration_YYYYMMDD(db: PouchDB.Database): Promise<void> { ... }
@@ -142,6 +172,7 @@ export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260311(db);
   await migration_20260315(db);
   await migration_20260317(db);
+  await migration_20260321(db);
   await db.compact();
   console.log('Database compacted.');
 }
