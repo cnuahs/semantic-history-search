@@ -268,6 +268,90 @@
         "secure"
       ]
     },
+    "search-child-limit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Search Child Limit"
+        },
+        "description": {
+          "type": "string",
+          "default": "Candidate chunks retrieved per search. Higher values improve recall but increase latency."
+        },
+        "value": {
+          "type": "number",
+          "default": 5000
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
+    "search-top-k": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Search Top-K"
+        },
+        "description": {
+          "type": "string",
+          "default": "Top-scoring chunks averaged per result. Higher values reward pages with broad relevance."
+        },
+        "value": {
+          "type": "number",
+          "default": 3
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
+    "search-length-penalty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Search Length Penalty"
+        },
+        "description": {
+          "type": "string",
+          "default": "Length penalty for long pages (0 = none, 1 = full). Reduces bias toward long documents."
+        },
+        "value": {
+          "type": "number",
+          "default": 0.2
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
+    },
     "indexed-half-life": {
       "type": "object",
       "properties": {
