@@ -413,19 +413,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
 
     // bin boundaries: null, 1, 2-5, 6-10, 11-50, 51-100, 101-500, 501+
-    const binLabels = ['--', '1', '2-5', '6-10', '11-50', '51-100', '101-500', '501+'];
-    const binCounts = [0, 0, 0, 0, 0, 0, 0, 0];
+    const binLabels = ['--', '0-1', '2-5', '6-10', '11-50', '51-100', '101-500', '501-1000', '1001+'];
+    const binCounts = [0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     for (const b of this.bookmarks) {
       const n = b.nrVectors;
       if (n === null || n === undefined) binCounts[0]++;
-      else if (n === 1) binCounts[1]++;
+      else if (n <= 1) binCounts[1]++;
       else if (n <= 5) binCounts[2]++;
       else if (n <= 10) binCounts[3]++;
       else if (n <= 50) binCounts[4]++;
       else if (n <= 100) binCounts[5]++;
       else if (n <= 500) binCounts[6]++;
-      else binCounts[7]++;
+      else if (n <= 1000) binCounts[7]++;
+      else binCounts[8]++;
     }
 
     const xScale = d3.scaleBand()

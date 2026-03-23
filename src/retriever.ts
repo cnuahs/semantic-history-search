@@ -640,12 +640,14 @@ function setup(settings: any): Promise<ScoredParentDocumentRetriever> {
           childSplitter: new NaiveTextSplitter(),
 
           // the number of nearest neighbours (i.e., child documents) to retrieve
-          childK: (settings["search-result-limit"].value as number) * 100,
+          childK: settings["search-child-limit"].value as number,
           
           // upper bound on the number of parent documents to return
           parentK: settings["search-result-limit"].value as number,
 
           similarityThreshold: settings["search-similarity-threshold"].value as number,
+          topK: settings["search-top-k"].value as number,
+          b: settings["search-length-penalty"].value as number,
         });
         resolve(retriever);
       })
@@ -686,6 +688,9 @@ settings.addListener(
     "pinecone-api-key",
     "search-result-limit",
     "search-similarity-threshold",
+    "search-child-limit",
+    "search-top-k",
+    "search-length-penalty",
   ],
   (changes) => {
     setup(changes.newValue)
