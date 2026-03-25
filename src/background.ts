@@ -189,7 +189,14 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         let bmk = (await retriever.select(b => b.id === normHash, 1))[0];
         if (bmk) {
           console.log("Found bookmark (normalised):", bmk.href);
-          retriever.update(normHash, { visits: [...bmk.visits, Date.now()] });
+          const p = retriever.update(normHash, { visits: [...bmk.visits, Date.now()] });
+
+          // attempt indexing if page was previously unreaderable but is now readerable
+          if (!bmk.indexed && info.text) {
+            console.log("Lazy re-index (normalised):", bmk.href);
+            p.then(() => retriever.update(normHash, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
+          }
+
           return;
         }
 
@@ -198,7 +205,14 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
           bmk = (await retriever.select(b => b.id === rawHash, 1))[0];
           if (bmk) {
             console.log("Found bookmark (unnormalised):", bmk.href);
-            retriever.update(rawHash, { visits: [...bmk.visits, Date.now()] });
+            const p = retriever.update(rawHash, { visits: [...bmk.visits, Date.now()] });
+
+            // attempt indexing if page was previously unreaderable but is now readerable
+            if (!bmk.indexed && info.text) {
+              console.log("Lazy re-index (unnormalised):", bmk.href);
+              p.then(() => retriever.update(rawHash, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
+            }
+
             return;
           }
         }
