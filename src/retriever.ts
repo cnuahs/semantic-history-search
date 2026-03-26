@@ -776,7 +776,7 @@ export async function add(id: string, fields: any): Promise<void> {
   await addBookmark({ [id]: bmk });
 
   if (!fields.text) {
-    return; // non-readerable — store locally only, skip embedding
+    return dStore.update(id, { nrVectors: 0 }); // non-readerable — store locally only, skip embedding
   }
 
   return embedAndUpsert(id, fields);
