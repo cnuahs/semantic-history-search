@@ -25,6 +25,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get nrBookmarks(): number { return this.bookmarks.length; }
   get nrVisits(): number { return this.bookmarks.reduce((n, b) => n + b.visits.length, 0); }
   get oldestVisit(): number { return Math.min(...this.bookmarks.flatMap((b: any) => b.visits)); }
+  get localVectorCount(): number { return this.bookmarks.reduce((n, b) => n + (b.nrVectors ?? 0), 0); }
+
+  get vectorDelta(): number { return this.vectorCount - this.localVectorCount; }
+
+  get vectorDeltaLabel(): string {
+    const d = this.vectorDelta;
+    const abs = Math.abs(d);
+    const prefix = d > 0 ? '+' : '-';
+    if (abs >= 1000) {
+      return `${prefix}${Math.round(abs / 1000)}k`;
+    }
+    return `${prefix}${abs}`;
+  }
 
   vectorCount: number = 0; // vector database/store size
 
