@@ -216,6 +216,7 @@ def main():
         nargs="?",
         help="JSON file to write to. Uses stdout if omitted.",
     )
+    backup_p.set_defaults(cmdfn=lambda args, index, namespace: backup(index, namespace, args.filename))
 
     # --- restore subcommand ---
     restore_p = subparsers.add_parser(
@@ -227,6 +228,7 @@ def main():
         nargs="?",
         help="JSON file to read from. Uses stdin if omitted.",
     )
+    restore_p.set_defaults(cmdfn=lambda args, index, namespace: restore(index, namespace, args.filename))
 
     # --- sanitize subcommand ---
     sanitize_p = subparsers.add_parser(
@@ -243,19 +245,14 @@ def main():
         action="store_true",
         help="Show what would be deleted without actually deleting.",
     )
+    sanitize_p.set_defaults(cmdfn=lambda args, index, namespace: sanitize(index, namespace, args.filename, args.dry_run))
 
     args = p.parse_args()
 
     namespace = os.getenv("PINECONE_NAMESPACE")
     index = get_index()
 
-    if args.command == "backup":
-        backup(index, namespace, args.filename)
-    elif args.command == "restore":
-        restore(index, namespace, args.filename)
-    elif args.command == "sanitize":
-        sanitize(index, namespace, args.filename, args.dry_run)
-
+    args.cmdfn(args, index, namespace)
 
 if __name__ == "__main__":
     main()
