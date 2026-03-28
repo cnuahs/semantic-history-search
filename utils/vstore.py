@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 # 2026-03-10 - Shaun L. Cloherty <s.cloherty@ieee.org>
-# 2026-03-26 - Refactored to use subcommands; added sanitize subcommand.
+# 2026-03-26 - Refactored to use subcommands; added sanitize and verify subcommands.
 
 import os, sys, json
 import argparse
+from collections import Counter
 
 from pathlib import Path
 
@@ -35,11 +36,26 @@ def fetch_batch(index, ids, namespace):
     return index.fetch(ids=ids, namespace=namespace).vectors
 
 
-def backup(index, namespace, output_file):
-    # --- Collect all IDs ---
+def list_all_ids(index, namespace):
+    """Page through Pinecone and return all vector IDs."""
     all_ids = []
     for id_batch in index.list(namespace=namespace):
         all_ids.extend(id_batch)
+    return all_ids
+
+
+def load_dstore(filename):
+    """Load a dStore export JSON file, or stdin if filename is None."""
+    if filename:
+        with open(filename) as f:
+            return json.load(f)
+    else:
+        return json.load(sys.stdin)
+
+
+def backup(index, namespace, args):
+    # --- Collect all IDs ---
+    all_ids = list_all_ids(index, namespace)
     print(f"Found {len(all_ids)} vectors. Fetching...", file=sys.stderr)
 
     # --- Parallel fetch ---
@@ -87,17 +103,17 @@ def backup(index, namespace, output_file):
         for id, vec in all_vectors.items()
     }
 
-    if output_file:
-        with open(output_file, "w") as f:
+    if args.filename:
+        with open(args.filename, "w") as f:
             json.dump(serializable, f)
-        print(f"Backup saved to {output_file}.", file=sys.stderr)
+        print(f"Backup saved to {args.filename}.", file=sys.stderr)
     else:
         json.dump(serializable, sys.stdout)
 
 
-def restore(index, namespace, input_file):
-    if input_file:
-        with open(input_file) as f:
+def restore(index, namespace, args):
+    if args.filename:
+        with open(args.filename) as f:
             data = json.load(f)
     else:
         data = json.load(sys.stdin)
@@ -149,22 +165,14 @@ def restore(index, namespace, input_file):
     print(f"Index stats after restore: {stats}", file=sys.stderr)
 
 
-def sanitize(index, namespace, dstore_file, dry_run):
-    # --- Load dStore export to get the set of known bookmark IDs ---
-    if dstore_file:
-        with open(dstore_file) as f:
-            dstore = json.load(f)
-    else:
-        dstore = json.load(sys.stdin)
-
+def sanitize(index, namespace, args):
+    dstore = load_dstore(args.filename)
     known_ids = set(dstore.get("bookmarks", {}).keys())
     print(f"Loaded {len(known_ids)} bookmark IDs from dStore export.", file=sys.stderr)
 
     # --- Page through all vector IDs in Pinecone ---
     print(f"Listing all vector IDs from Pinecone...", file=sys.stderr)
-    all_ids = []
-    for id_batch in index.list(namespace=namespace):
-        all_ids.extend(id_batch)
+    all_ids = list_all_ids(index, namespace)
     print(f"Found {len(all_ids)} vectors in Pinecone.", file=sys.stderr)
 
     # --- Identify orphaned vector IDs ---
@@ -178,7 +186,7 @@ def sanitize(index, namespace, dstore_file, dry_run):
         print("Nothing to do.", file=sys.stderr)
         return
 
-    if dry_run:
+    if args.dry_run:
         print(f"Dry run — would delete {len(orphaned_ids)} orphaned vectors.", file=sys.stderr)
         for hash in sorted(orphaned_hashes):
             count = sum(1 for id in orphaned_ids if id.startswith(hash))
@@ -200,6 +208,53 @@ def sanitize(index, namespace, dstore_file, dry_run):
     print(f"Index stats after sanitize: {stats}", file=sys.stderr)
 
 
+def verify(index, namespace, args):
+    dstore = load_dstore(args.filename)
+    bookmarks = dstore.get("bookmarks", {})
+    print(f"Loaded {len(bookmarks)} bookmarks from dStore export.", file=sys.stderr)
+
+    # --- Page through all vector IDs in Pinecone and count per hash prefix ---
+    print(f"Listing all vector IDs from Pinecone...", file=sys.stderr)
+    all_ids = list_all_ids(index, namespace)
+    print(f"Found {len(all_ids)} vectors in Pinecone.", file=sys.stderr)
+
+    pinecone_counts = Counter(id.split(':')[0] for id in all_ids)
+
+    # --- Compare against nrVectors in dStore ---
+    over_count  = 0  # pinecone > local
+    under_count = 0  # pinecone < local
+    missing     = 0  # indexed locally but no vectors in pinecone
+
+    for id, bmk in bookmarks.items():
+        local  = bmk.get("metadata", {}).get("nrVectors") or 0
+        actual = pinecone_counts.get(id, 0)
+
+        if local == actual:
+            continue
+
+        delta = actual - local
+        flag = "over" if delta > 0 else "under"
+        print(f"  {id}  local={local}  pinecone={actual}  ({'+' if delta > 0 else ''}{delta})  [{flag}]")
+
+        if actual == 0 and local > 0:
+            missing += 1
+        elif delta > 0:
+            over_count += 1
+        else:
+            under_count += 1
+
+    total_discrepancies = over_count + under_count + missing
+    if total_discrepancies == 0:
+        print("All bookmarks consistent.", file=sys.stderr)
+    else:
+        print(
+            f"\nSummary: {over_count} over-counted, {under_count} under-counted, "
+            f"{missing} missing vectors entirely. "
+            f"({total_discrepancies} total discrepancies)",
+            file=sys.stderr,
+        )
+
+
 def main():
     p = argparse.ArgumentParser(
         description="Manage the SHS Pinecone vector store.",
@@ -216,7 +271,7 @@ def main():
         nargs="?",
         help="JSON file to write to. Uses stdout if omitted.",
     )
-    backup_p.set_defaults(cmdfn=lambda args, index, namespace: backup(index, namespace, args.filename))
+    backup_p.set_defaults(cmdfn=backup)
 
     # --- restore subcommand ---
     restore_p = subparsers.add_parser(
@@ -228,7 +283,7 @@ def main():
         nargs="?",
         help="JSON file to read from. Uses stdin if omitted.",
     )
-    restore_p.set_defaults(cmdfn=lambda args, index, namespace: restore(index, namespace, args.filename))
+    restore_p.set_defaults(cmdfn=restore)
 
     # --- sanitize subcommand ---
     sanitize_p = subparsers.add_parser(
@@ -245,14 +300,26 @@ def main():
         action="store_true",
         help="Show what would be deleted without actually deleting.",
     )
-    sanitize_p.set_defaults(cmdfn=lambda args, index, namespace: sanitize(index, namespace, args.filename, args.dry_run))
+    sanitize_p.set_defaults(cmdfn=sanitize)
+
+    # --- verify subcommand ---
+    verify_p = subparsers.add_parser(
+        "verify",
+        help="Compare nrVectors in dStore export against actual Pinecone vector counts.",
+    )
+    verify_p.add_argument(
+        "filename",
+        nargs="?",
+        help="dStore export JSON file. Uses stdin if omitted.",
+    )
+    verify_p.set_defaults(cmdfn=verify)
 
     args = p.parse_args()
 
     namespace = os.getenv("PINECONE_NAMESPACE")
     index = get_index()
 
-    args.cmdfn(args, index, namespace)
+    args.cmdfn(index, namespace, args)
 
 if __name__ == "__main__":
     main()
