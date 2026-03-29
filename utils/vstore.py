@@ -220,6 +220,13 @@ def verify(index, namespace, args):
 
     pinecone_counts = Counter(id.split(':')[0] for id in all_ids)
 
+    # --- Group IDs by hash prefix for uniqueness check ---
+    ids_by_hash = {}
+    if args.unique:
+        for id in all_ids:
+            hash = id.split(':')[0]
+            ids_by_hash.setdefault(hash, []).append(id)
+
     # --- Compare against nrVectors in dStore ---
     over_count  = 0  # pinecone > local
     under_count = 0  # pinecone < local
@@ -234,7 +241,34 @@ def verify(index, namespace, args):
 
         delta = actual - local
         flag = "over" if delta > 0 else "under"
-        print(f"  {id}  local={local}  pinecone={actual}  ({'+' if delta > 0 else ''}{delta})  [{flag}]")
+
+        unique_str = ""
+        if args.unique and delta > 0:
+            import numpy as np
+
+            # fetch all vectors for this hash
+            hash_ids = ids_by_hash.get(id, [])
+            fetched = {}
+            for batch in chunked(hash_ids, FETCH_BATCH_SIZE):
+                fetched.update(fetch_batch(index, batch, namespace))
+
+            # compute unique count using upper-triangle dot products
+            unique_ids = list(fetched.keys())
+            mat = np.array([list(fetched[uid].values) for uid in unique_ids])
+
+            duplicates = set()
+            for i in range(len(mat)):
+                if i in duplicates:
+                    continue
+                sims = mat[i+1:] @ mat[i]  # dot products with all j > i
+                for j, sim in enumerate(sims, start=i+1):
+                    if sim > args.threshold:
+                        duplicates.add(j)
+
+            unique_count = len(mat) - len(duplicates)
+            unique_str = f"  unique={unique_count}"
+
+        print(f"  {id}  local={local}  pinecone={actual}  ({'+' if delta > 0 else ''}{delta})  [{flag}]{unique_str}")
 
         if actual == 0 and local > 0:
             missing += 1
@@ -311,6 +345,17 @@ def main():
         "filename",
         nargs="?",
         help="dStore export JSON file. Uses stdin if omitted.",
+    )
+    verify_p.add_argument(
+        "-u", "--unique",
+        action="store_true",
+        help="For over-counted bookmarks, fetch vectors and report the number of unique values.",
+    )
+    verify_p.add_argument(
+        "-t", "--threshold",
+        type=float,
+        default=0.9999,
+        help="Similarity threshold for duplicate detection (default: 0.9999).",
     )
     verify_p.set_defaults(cmdfn=verify)
 
