@@ -53,7 +53,7 @@ async function migration_20260311(
   const result = await db.allDocs({ include_docs: true });
   await Promise.all(
     result.rows
-      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+      .filter((row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings')
       .map((row) => {
         const doc = row.doc as any;
         if (doc.metadata) {
@@ -87,7 +87,7 @@ async function migration_20260315(
   const result = await db.allDocs({ include_docs: true });
   await Promise.all(
     result.rows
-      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+      .filter((row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings')
       .map((row) => {
         return db.upsert(row.id, (existing: any) => ({
           ...existing,
@@ -117,7 +117,7 @@ async function migration_20260317(db: PouchDB.Database): Promise<void> {
 
   const result = await db.allDocs({ include_docs: true });
   const bookmarks = result.rows.filter(
-    (row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta')
+    (row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings'
   );
 
   if (bookmarks.length > 0) {
@@ -146,7 +146,7 @@ async function migration_20260321(db: PouchDB.Database): Promise<void> {
   const result = await db.allDocs({ include_docs: true });
   await Promise.all(
     result.rows
-      .filter((row) => !row.id.startsWith('migration_') && !row.id.startsWith('meta'))
+      .filter((row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings')
       .map((row) => {
         return db.upsert(row.id, (existing: any) => ({
           ...existing,
