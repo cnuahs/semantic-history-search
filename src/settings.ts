@@ -61,10 +61,7 @@ function validate(data: any): void {
 
 validate(_defaults); // note: modifies _defaults in place
 
-// helper for chrome.storage.sync (used to store settings)
-const syncCache = { settings: _defaults };
-
-// settings migrations — run in sequence in initSyncCache (below), before any get() or set() calls
+// settings migrations — run in sequence in initSettingsCache (below), before any get() or set() calls
 // each migration is idempotent — safe to run multiple times
 
 // 001: rename frecency-half-life -> indexed-half-life
@@ -82,96 +79,110 @@ function migration_001(settings: any): any {
 
 function migrate(settings: any): any {
   settings = migration_001(settings);
-  // settings = settingsMigration_002(settings);
+  // settings = migration_002(settings);
   return settings;
 }
 
-const initSyncCache = chrome.storage.sync.get().then((items) => {
-  // copy all items to syncCache
-  Object.assign(syncCache, items);
+// helper to split a PouchDB document into { metadata, data } by separating fields starting with '_' (PouchDB metadata) from the rest (actual data)
+function split(doc: any): { data: { [key: string]: any }, metadata: { [key: string]: any } } {
+  const data: { [key: string]: any } = {};
+  const metadata: { [key: string]: any } = {};
 
-  // run migrations before any validation
-  const migrated = migrate(syncCache.settings);
-  if (migrated !== syncCache.settings) {
-    syncCache.settings = migrated;
-    chrome.storage.sync.set(syncCache);
-    console.log('Settings migrated and saved.');
-  }
+  Object.keys(doc).forEach(key => {
+    if (key.startsWith('_')) {
+      metadata[key] = doc[key];
+    } else {
+      data[key] = doc[key];
+    }
+  });
+
+  return { data, metadata };
+}
+
+// in-memory cache of the settings document
+import { db } from './db';
+
+const settingsCache: { settings: typeof _defaults } = { settings: _defaults };
+
+const initSettingsCache = db.get('settings')
+  .then((doc: any) => {
+    // run migrations before validation
+    const { data: settings } = split(doc);
+
+    const migrated = migrate(settings);
+    if (migrated !== settings) {
+      // migrations changed something — write back to PouchDB
+      db.upsert('settings', (existing: any) => ({ ...existing, ...migrated }))
+        .then(() => console.log('Settings migrated and saved.'));
+    }
+    Object.assign(settingsCache, { settings: migrated });
+  })
+  .catch(() => {
+    // no settings document yet — new install, use defaults
+    console.log('settings: no settings document found, using defaults.');
+  });
+
+// listen for changes to the settings document arriving via PouchDB
+// (including changes arriving via CouchDB sync from another device)
+db.changes({
+  since: 'now',
+  live: true,
+  include_docs: true,
+  doc_ids: ['settings'],
+}).on('change', (change: any) => {
+  const { data } = split(change.doc);
+  const newSettings = data as typeof _defaults;
+  const oldSettings = settingsCache.settings;
+
+  settingsCache.settings = newSettings;
+
+  // notify listeners for any changed keys
+  Object.entries(newSettings).forEach(([key, obj]: [string, any]) => {
+    if (oldSettings && (oldSettings as any)[key]?.value === obj?.value) {
+      return;
+    }
+    if (callbacks[key]) {
+      callbacks[key].forEach((callback) => {
+        callback({ oldValue: oldSettings, newValue: newSettings });
+      });
+    }
+  });
 });
 
 const callbacks: {
   [key: string]: ((changes: chrome.storage.StorageChange) => void)[];
 } = {};
 
-// listen for changes to settings and, if necessary, call all registered
-// callbacks for each changed setting
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  for (let [key, { oldValue, newValue }] of Object.entries(changes)) {
-    if (namespace !== "sync" && key !== "settings") {
-      return;
-    }
-
-    // console.log(
-    //   `Storage key "${key}" in namespace "${namespace}" changed.`,
-    //   `Old value was "${oldValue}", new value is "${newValue}".`
-    // );
-
-    // update the sync cache
-    syncCache.settings = newValue as typeof syncCache.settings;
-    // console.log("Updated sync cache with settings.", syncCache);
-
-    // notify listeners
-    const newVal = newValue as Record<string, SettingValue>;
-    const oldVal = oldValue as Record<string, SettingValue>;
-    Object.entries(newVal).forEach(([key, obj]) => {
-      if (oldVal && oldVal[key]?.value === obj?.value) {
-        return;
-      }
-      
-      if (callbacks[key]) {
-        callbacks[key].forEach((callback) => {
-          callback({ oldValue: oldVal, newValue: newVal });
-        });
-      }
-    });
-  }
-});
-
 // public API
 export async function get(...args: any[]): Promise<Setting | Setting[]> {
   console.log("settings.get():", args);
 
   if (arguments.length > 1) {
-    // too many arguments passed
     throw new Error(
       `Too many arguments to get(). Expected 1 argument but received ${arguments.length}.`,
     );
   }
 
-  // populate storageCache from storage.local
-  return initSyncCache
+  return initSettingsCache
     .then(() => {
-      // nasty hack here to get a *copy* of the settings object
       const settings = JSON.parse(
         JSON.stringify(
-          syncCache.settings
-            ? { ..._defaults, ...syncCache.settings }
+          settingsCache.settings
+            ? { ..._defaults, ...settingsCache.settings }
             : _defaults,
         ),
       );
       validate(settings);
       return settings;
     })
-    .then((settings: { [key: string]: any }) => {
+    .then(( settings: { [key: string]: any } ) => {
       if (arguments.length === 0 || args[0] === undefined) {
-        // .get()
         return Object.entries(settings).map(([key, value]) => {
           value.name = key;
           return value;
         });
       }
       if (typeof args[0] === "string") {
-        // .get("key")
         if (args[0] in settings) {
           let val = settings[args[0]];
           val.name = args[0];
@@ -184,7 +195,6 @@ export async function get(...args: any[]): Promise<Setting | Setting[]> {
 export function set(...args: any[]): Promise<void> {
   return new Promise<void>(async (resolve, reject) => {
     if (arguments.length === 0 || args[0] === undefined) {
-      // return;
       reject(new Error("No arguments passed to set()."));
     }
     if (arguments.length > 2) {
@@ -218,38 +228,37 @@ export function set(...args: any[]): Promise<void> {
           // .set(key, value)
           // set the value for key
 
-          // populate syncCache from storage.sync
-          initSyncCache
+          // populate settingsCache from storage.sync
+          initSettingsCache
             .then(() => {
               const settings = JSON.parse(
                 JSON.stringify(
-                  syncCache.settings
-                    ? { ..._defaults, ...syncCache.settings }
+                  settingsCache.settings
+                    ? { ..._defaults, ...settingsCache.settings }
                     : _defaults,
                 ),
               );
               validate(settings);
               return settings;
             })
-            .then((settings: { [key: string]: any }) => {
-              // update syncCache
+            .then(( settings: { [key: string]: any }) => {
               let val = settings[args[0]];
               val.value = args[1];
               settings[args[0]] = val;
               return settings;
             })
-            .then((settings: { [key: string]: any }) => {
-              // update storage.sync
+            .then(( settings: { [key: string]: any } ) => {
               validate(settings);
-              Object.assign(syncCache.settings, settings);
-              chrome.storage.sync.set(syncCache, () => {
-                console.log("Settings saved to storage.sync:", syncCache);
-              });
+              Object.assign(settingsCache.settings, settings);
+              // write to PouchDB
+              return db.upsert('settings', (doc: any) => ({ ...doc, ...settings }));
+            })
+            .then(() => {
+              console.log("Settings saved to PouchDB.");
               resolve();
-            });
+            })
+            .catch(reject);
         } else {
-          // .set(key)
-          // retrieve the value for key?
           reject(new Error("No value passed to set()."));
         }
       } else {
