@@ -184,6 +184,23 @@ async function migration_20260402(db: PouchDB.Database): Promise<void> {
   console.log('Migration 20260402 complete.');
 }
 
+// 2026-04-03: remove settings from chrome.storage.sync since they now live in PouchDB
+async function migration_20260403(db: PouchDB.Database): Promise<void> {
+  const key = 'migration_20260403';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
+
+  await chrome.storage.sync.remove('settings');
+  console.log('migration_20260403: settings removed from chrome.storage.sync.');
+
+  await db.put({ _id: key });
+  console.log('Migration 20260403 complete.');
+}
+
 // Add migrations here, e.g.:
 // YYYY-MM-DD: <description>
 // async function migration_YYYYMMDD(db: PouchDB.Database): Promise<void> { ... }
@@ -195,6 +212,7 @@ export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260317(db);
   await migration_20260321(db);
   await migration_20260402(db);
+  await migration_20260403(db);
   await db.compact();
   console.log('Database compacted.');
 }
