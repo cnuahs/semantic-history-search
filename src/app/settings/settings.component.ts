@@ -111,16 +111,6 @@ export class SettingsComponent implements OnInit {
     this.router.navigate(["/"]);
   }
 
-  unlock(passphrase: string) {
-    // unlock settings
-    // this.settingsService.unlock(passphrase);
-    // const url = this.router.url
-    // this.router.navigateByUrl('/', { skipLocationChange: true })
-    // .then(() => {
-    //   this.router.navigate([`${url}`]);
-    // });
-  }
-
   isArray(value: any) {
     return Array.isArray(value);
   }

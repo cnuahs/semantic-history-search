@@ -126,21 +126,7 @@
     <app-actions></app-actions>
   } @else {
     <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
-      <input
-        #passphrase
-        type="password"
-        class="p-2 bg-white placeholder:text-slate-300 outline-solid outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
-        [(ngModel)]="passphrase"
-        name="passphrase"
-        ngDefaultControl
-        placeholder="Passphrase"
-      />
-      <input
-        type="button"
-        class="px-4 py-2 bg-cyan-500 text-white rounded-md"
-        value="Unlock"
-        (click)="unlock(passphrase.value)"
-      />
+      <p class="text-sm text-slate-500">Settings could not be loaded.</p>
     </div>
   }
 </div>
