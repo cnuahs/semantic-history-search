@@ -177,7 +177,7 @@ async function migration_20260402(db: PouchDB.Database): Promise<void> {
   const { settings } = await chrome.storage.sync.get('settings');
   if (settings) {
     await db.upsert('settings', (doc) => ({ ...doc, ...settings }));
-    console.log('migration_20260402: settings migrated from chrome.storage.sync to PouchDB.');
+    console.log('Migration 20260402: settings migrated from chrome.storage.sync to PouchDB.');
   }
 
   await db.put({ _id: key });
@@ -195,10 +195,55 @@ async function migration_20260403(db: PouchDB.Database): Promise<void> {
   }
 
   await chrome.storage.sync.remove('settings');
-  console.log('migration_20260403: settings removed from chrome.storage.sync.');
+  console.log('Migration 20260403: settings removed from chrome.storage.sync.');
 
   await db.put({ _id: key });
   console.log('Migration 20260403 complete.');
+}
+
+// 2026-04-04: generate masterKey for existing users upgrading to HMAC IDs
+//
+// Generates a masterKey for existing users who have bookmarks stored under
+// SHA-256 IDs. Sets hmacMigrateDate watermark to trigger the HMAC migration
+// maintenance task which will rehash existing bookmarks to HMAC IDs.
+//
+// Skipped for new installs (no bookmarks) — they go through the first-run
+// setup wizard which calls generateMasterKey() directly.
+import { generateMasterKey } from './index';
+
+async function migration_20260404(db: PouchDB.Database): Promise<void> {
+  const key = 'migration_20260404';
+  try {
+    await db.get(key);
+    return; // already migrated
+  } catch {
+    // not migrated yet, proceed
+  }
+
+  // check for existing bookmarks — skip if this is a new install
+  const result = await db.allDocs({ include_docs: false });
+  const bookmarks = result.rows.filter(
+    (row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings'
+  );
+
+  if (bookmarks.length === 0) {
+    console.log('Migration 20260404: no existing bookmarks, skipping (new install).');
+    await db.put({ _id: key });
+    return;
+  }
+
+  // generate and store masterKey
+  await generateMasterKey();
+
+  // set hmacMigrateDate watermark to trigger HMAC migration maintenance task
+  await db.upsert('meta', (existing: any) => ({
+    ...existing,
+    hmacMigrateDate: 0, // 0 = Midnight, 1st Jan., 1970 - ensures all existing bookmarks get migrated
+  }));
+  console.log('Migration 20260404: hmacMigrateDate set to', new Date(0).toISOString(), ', HMAC migration scheduled.');
+
+  await db.put({ _id: key });
+  console.log('Migration 20260404 complete.');
 }
 
 // Add migrations here, e.g.:
@@ -213,6 +258,7 @@ export async function migrate(db: PouchDB.Database): Promise<void> {
   await migration_20260321(db);
   await migration_20260402(db);
   await migration_20260403(db);
+  await migration_20260404(db);
   await db.compact();
   console.log('Database compacted.');
 }

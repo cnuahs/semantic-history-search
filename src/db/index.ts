@@ -32,22 +32,22 @@ export async function setMeta(fields: Record<string, any>): Promise<void> {
 
 let _masterKey: CryptoKey | null = null;
 
-export function getMasterKey(): CryptoKey | null {
-  return _masterKey;
+// generate a new masterKey and store in chrome.storage.local
+// called from migration_20260404 (existing users) and the setup wizard (new users)
+export async function generateMasterKey(): Promise<void> {
+  const masterKey = await crypto.subtle.generateKey(
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    true,
+    ['sign'],
+  );
+  const raw = await crypto.subtle.exportKey('raw', masterKey);
+  await chrome.storage.local.set({ masterKey: Array.from(new Uint8Array(raw)) });
+  _masterKey = masterKey;
+  console.log('db.generateMasterKey(): masterKey generated and stored.');
 }
 
-//
-// bookmark IDs
-//
-
-import { sha256Id, hmacId } from '../utils/id';
-
-// calculate bookmark ID using _masterKey
-export async function bookmarkId(href: string): Promise<string> {
-  if (_masterKey) {
-    return hmacId(_masterKey, href);
-  }
-  return sha256Id(href); // fallback before init() completes
+export function getMasterKey(): CryptoKey | null {
+  return _masterKey;
 }
 
 // retrieve _masterKey on service worker startup
@@ -73,4 +73,18 @@ export function ready(): boolean {
   return _masterKey !== null;
 }
 
-export default { init, ready, getMasterKey, bookmarkId, getMeta, setMeta };
+//
+// bookmark IDs
+//
+
+import { sha256Id, hmacId } from '../utils/id';
+
+// calculate bookmark ID using _masterKey
+export async function bookmarkId(href: string): Promise<string> {
+  if (_masterKey) {
+    return hmacId(_masterKey, href);
+  }
+  return sha256Id(href); // fallback before init() completes
+}
+
+export default { getMeta, setMeta, generateMasterKey, getMasterKey, init, ready, bookmarkId };
