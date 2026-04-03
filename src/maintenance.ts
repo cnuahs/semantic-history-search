@@ -188,7 +188,11 @@ async function run(): Promise<void> {
 
 // initialise maintenance on startup — schedule if there is work to do
 async function init(): Promise<void> {
-  await retriever.ready();
+  const ready = await retriever.ready();
+  if (!ready) {
+    console.log('maintenance.init(): retriever not ready, skipping maintenance.');
+    return;
+  }
 
   const meta = await getMeta();
   const nullBookmarks = await retriever.select((bmk) => bmk.nrVectors === null, 1);

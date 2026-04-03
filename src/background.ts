@@ -108,7 +108,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
   switch (message.type) {
     case "add-bookmark":
       const info = message.payload;
-      console.log("Host:", info.host);
+      console.log("href:", info.href);
 
       const force = sender.tab?.id !== undefined && refreshing.has(sender.tab.id); // force embedding/upserting
 
@@ -129,7 +129,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         sha256(normalize(info.href)), // legacy normalised hash... matches bookmarks created before HMAC was implemented
         sha256(info.href), // legacy un-normalized (raw) hash...  matches bookmarks created before normalization was implemented
       ]).then(async ([id, normHash, rawHash]) => {
-        console.log("Bookmark ID: %s", normHash);
+        console.log("id:", id);
 
         if (force) {
           // refresh path
@@ -319,7 +319,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // register resolve callback before injecting — avoids a race where
         // add-bookmark fires before the promise is registered
-        const TIMEOUT_MS = 60000; // 60s timeout
+        const TIMEOUT_MS = 180_000; // 3 minute timeout?
         let timeout: ReturnType<typeof setTimeout>;
 
         const done = new Promise<void>((resolve, reject) => {
