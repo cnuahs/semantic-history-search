@@ -12,7 +12,7 @@
 //   Object.assign(localCache, items);
 // });
 
-import { db } from './db';
+import { db, init as dbInit } from './db';
 import { migrate } from './db/migrations';
 
 /*
@@ -440,13 +440,9 @@ export class InMemoryLocalStore extends BaseStore<string, Document> implements D
     }));
   }}
 
-// const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
 const dStore = new InMemoryLocalStore({}); // empty store
-// initLocalCache.then(() => {
-//   console.log("Loaded local cache:", localCache);
-//   dStore.store = localCache.bookmarks as Record<string, Bookmark>;
-// });
-const initLocalCache = migrate(db).then(() =>
+
+const initLocalCache = migrate(db).then(() => dbInit()).then(() =>
   db.allDocs({ include_docs: true }).then((result) => {
     result.rows
       .filter((row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings')
