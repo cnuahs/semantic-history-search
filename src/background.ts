@@ -6,7 +6,7 @@ import settings, { SettingValue } from "./settings";
 
 import retriever, { Bookmark } from "./retriever";
 
-import { getMeta, setMeta } from "./db";
+import db, { getMeta, setMeta } from "./db";
 
 import { normalize } from "./utils/url";
 import { sha256 } from "./utils/hash";
@@ -398,6 +398,16 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         
       return true; // keep the channel open
 
+    case "get-status":
+      retriever.ready().then((ready) => {
+        sendResponse({ type: "result", payload: {
+          setupRequired: !db.ready(),
+          retrieverReady: ready,
+        }});
+      });
+
+      return true; // keep the channel open
+
     default:
       console.warn("Unknown message type:", message.type);
 
@@ -459,7 +469,14 @@ addOnChunkedMessageListener(function (
 
 import maintenance from "./maintenance";
 
-maintenance.init();
+retriever.ready().then((ready) => {
+  if (!ready) {
+    console.warn('background: not ready —', db.ready() ? 'retriever failed to initialise.' : 'setup required.');
+    return;
+  }
+
+  maintenance.init();
+});
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "shs-maintenance") {
@@ -469,19 +486,3 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     });
   }
 });
-
-// // create a new periodic alarm
-// chrome.alarms.create("shs-alarm", {
-//   delayInMinutes: 0,
-//   periodInMinutes: 2
-// });
-
-// // call this synchronously at startup to ensure we get woken
-// // up when the alarm times out
-// chrome.alarms.onAlarm.addListener(function(alarm) {
-//   if (alarm.name === "shs-alarm") {
-//     console.log('Alarm timed out:', new Date().toString());
-//     chrome.scripting.getRegisteredContentScripts()
-//       .then(scripts => console.log("registered content scripts", scripts));
-//   }
-// });
