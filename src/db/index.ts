@@ -50,32 +50,27 @@ export async function bookmarkId(href: string): Promise<string> {
   return sha256Id(href); // fallback before init() completes
 }
 
-// retrieve (or initialise) _masterKey on service worker startup
+// retrieve _masterKey on service worker startup
 //
 // note: must be called (and resolve?) before retriever initialisation...
 export async function init(): Promise<void> {
-  const { masterKey: stored } = await chrome.storage.local.get('masterKey');
-  if (stored) {
-    _masterKey = await crypto.subtle.importKey(
-      'raw',
-      new Uint8Array(Object.values(stored as Record<string, number>)),
-      { name: 'HMAC', hash: 'SHA-256', length: 256 },
-      true,
-      ['sign'],
-    );
-    console.log('db.init(): masterKey loaded from storage.');
+  const { masterKey: raw } = await chrome.storage.local.get('masterKey');
+  if (!raw) {
+    console.log('db.init(): no masterKey found — setup required.');
     return;
   }
-
-  // first run — generate and store a new masterKey
-  _masterKey = await crypto.subtle.generateKey(
+  _masterKey = await crypto.subtle.importKey(
+    'raw',
+    new Uint8Array(Object.values(raw as Record<string, number>)),
     { name: 'HMAC', hash: 'SHA-256', length: 256 },
     true,
     ['sign'],
   );
-  const raw = await crypto.subtle.exportKey('raw', _masterKey);
-  await chrome.storage.local.set({ masterKey: Array.from(new Uint8Array(raw)) });
-  console.log('db.init(): masterKey generated and stored.');
+  console.log('db.init(): masterKey loaded.');
 }
 
-export default { init, getMasterKey, bookmarkId, getMeta, setMeta };
+export function ready(): boolean {
+  return _masterKey !== null;
+}
+
+export default { init, ready, getMasterKey, bookmarkId, getMeta, setMeta };
