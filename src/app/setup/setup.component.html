@@ -1,0 +1,178 @@
+<div class="h-full flex flex-col">
+
+  <!-- header -->
+  <div class="w-full h-10 p-1 px-2 space-x-2 bg-cyan-500 flex flex-row">
+    <div>
+      <img src="icon128.png" class="h-full" />
+    </div>
+  </div>
+
+  <div class="min-w-full px-10 py-10 bg-slate-100 flex flex-col grow gap-10 items-center justify-center">
+
+    <!-- step: choose -->
+    @if (step === 'choose') {
+      <p class="text-2xl text-slate-600">
+        Welcome to Semantic History Search.
+      </p>
+      <div class="flex flex-col gap-2 items-stretch">
+        <p class="text-sm text-slate-600">
+          Is this a new installation, or are you joining an existing sync?
+        </p>
+        <button
+          class="px-4 py-2 bg-cyan-500 text-white rounded-md disabled:opacity-50"
+          (click)="onNewInstall()"
+          [disabled]="isWorking"
+        >
+          New installation
+        </button>
+        <button
+          class="px-4 py-2 bg-slate-200 text-slate-600 rounded-md disabled:opacity-50"
+          (click)="onJoinExisting()"
+          [disabled]="isWorking"
+        >
+          Join existing sync
+        </button>
+      </div>
+      @if (isWorking) {
+        <p class="text-sm text-slate-400">Setting up...</p>
+      }
+    }
+
+    <!-- step: new-key — display generated masterKey -->
+    @if (step === 'new-key') {
+      <p class="text-2xl text-slate-600">
+        Your master key has been generated.
+      </p>
+      <div class="w-full flex flex-col my-2">
+        <span class="font-medium">Master key</span>
+        <div class="h-5 mb-1 text-gray-500">
+          <span class="font-light text-sm">
+            Save it somewhere safe — you will need it to sync other devices or recover your history if you reinstall.  
+          </span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <div class="font-mono text-xs text-center bg-white p-3 rounded-md outline outline-1 outline-slate-200 break-words select-all">
+            {{ masterKeyHex }}
+          </div>
+          <button
+            class="px-4 py-2 bg-slate-200 text-slate-600 rounded-md"
+            (click)="onCopyKey()"
+          >
+            {{ copied ? 'Copied!' : 'Copy to clipboard' }}
+          </button>
+        </div>
+      </div>
+      <button
+        class="px-4 py-2 bg-cyan-500 text-white rounded-md"
+        (click)="onNewKeySaved()"
+      >
+        I've saved my master key
+      </button>
+    }
+
+    <!-- step: join-key — paste masterKey and enter CouchDB URL -->
+    @if (step === 'join-key') {
+      <p class="text-2xl text-slate-600">
+        Sync setup.
+      </p>
+      <div class="w-full flex flex-col my-2">
+        <div class="w-full flex flex-col my-2">
+          <span class="font-medium">Master key</span>
+          <div class="h-5 mb-1 text-gray-500">
+            <span class="font-light text-sm">
+              Enter the master key from your other device.
+            </span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <!-- <label class="text-xs font-medium text-slate-500">Master key</label> -->
+            <input
+              type="text"
+              class="font-mono text-xs p-2 bg-white placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-md"
+              placeholder="a3f2 c1d4 b5e6 f7a8 ..."
+              [(ngModel)]="masterKeyInput"
+              name="masterKeyInput"
+              ngDefaultControl
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+        <div class="w-full flex flex-col my-2">
+          <span class="font-medium">Sync URL</span>
+          <div class="h-5 mb-1 text-gray-500">
+            <span class="font-light text-sm">
+              Enter the sync server URL from your other device.
+            </span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <input
+              type="url"
+              class="p-2 bg-white placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-md"
+              placeholder="https://your-sync-server/"
+              [(ngModel)]="couchdbUrl"
+              name="couchdbUrl"
+              ngDefaultControl
+              autocomplete="off"
+            />
+          </div>
+        </div>
+      </div>
+      <button
+        class="px-4 py-2 bg-cyan-500 text-white rounded-md disabled:opacity-50"
+        (click)="onJoinComplete()"
+        [disabled]="isWorking || !masterKeyInputValid"
+      >
+        {{ isWorking ? 'Setting up...' : 'Join sync' }}
+      </button>
+    }
+
+    <!-- step: sync-url — optionally enter CouchDB URL (new install path) -->
+    @if (step === 'sync-url') {
+      <p class="text-2xl text-slate-600">
+        Sync setup [Optional].
+      </p>
+      <div class="w-full flex flex-col my-2">
+        <span class="font-medium">Sync URL</span>
+        <div class="h-5 mb-1 text-gray-500">
+          <span class="font-light text-sm">
+            Sync server URL to enable sync across devices. You can skip this and add it later in settings.
+          </span>
+        </div>
+        <div class="mb-2 flex flex-col gap-1">
+          <input
+            type="url"
+            class="p-2 bg-white placeholder:text-slate-300 outline outline-1 outline-slate-200 focus:outline-cyan-500 rounded-md"
+            placeholder="https://your-sync-server/"
+            [(ngModel)]="couchdbUrl"
+            name="couchdbUrl"
+            ngDefaultControl
+            autocomplete="off"
+          />
+        </div>
+        <div class="flex flex-row gap-2 justify-end">
+          <button
+            class="px-4 py-2 bg-slate-200 text-slate-500 rounded-md"
+            (click)="onSkipCouchdb()"
+            [disabled]="isWorking"
+          >
+            Skip
+          </button>
+          <button
+            class="px-4 py-2 bg-cyan-500 text-white rounded-md disabled:opacity-50"
+            (click)="onCouchdbComplete()"
+            [disabled]="isWorking"
+          >
+            {{ isWorking ? 'Saving...' : 'Save and finish' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- error message -->
+    @if (errorMessage) {
+      <p class="text-sm text-red-500">{{ errorMessage }}</p>
+    }
+
+  </div>
+
+</div>

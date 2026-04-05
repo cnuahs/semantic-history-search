@@ -157,5 +157,38 @@ export class SearchService {
     });
   }
 
+  async status(): Promise<{ setupRequired: boolean, retrieverReady: boolean }> {
+    return chrome.runtime.sendMessage({ type: 'get-status' }).then((response) => {
+      if (!response || response.type !== 'result') {
+        return { setupRequired: false, retrieverReady: false };
+      }
+      return response.payload as { setupRequired: boolean, retrieverReady: boolean };
+    });
+  }
+
+  async setupNew(): Promise<string> {
+    console.log('SearchService: setup-new.');
+
+    return chrome.runtime.sendMessage({ type: 'setup-new' }).then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Setup failed.');
+      }
+      return response.payload as string; // hex masterKey
+    });
+  }
+
+  async setupJoin(masterKeyHex: string, couchdbUrl: string): Promise<void> {
+    console.log('SearchService: setup-join.');
+
+    return chrome.runtime.sendMessage({ 
+      type: 'setup-join', 
+      payload: { masterKeyHex, couchdbUrl } 
+    }).then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Failed to join sync.');
+      }
+    });
+  }
+  
   constructor() {}
 }

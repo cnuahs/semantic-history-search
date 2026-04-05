@@ -46,6 +46,21 @@ export async function generateMasterKey(): Promise<void> {
   console.log('db.generateMasterKey(): masterKey generated and stored.');
 }
 
+// import a masterKey from a hex string (used during join existing sync setup)
+export async function importMasterKey(hex: string): Promise<void> {
+  const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
+  const masterKey = await crypto.subtle.importKey(
+    'raw',
+    bytes,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    true,
+    ['sign'],
+  );
+  await chrome.storage.local.set({ masterKey: Array.from(bytes) });
+  _masterKey = masterKey;
+  console.log('db.importMasterKey(): masterKey imported and stored.');
+}
+
 export function getMasterKey(): CryptoKey | null {
   return _masterKey;
 }
@@ -87,4 +102,4 @@ export async function bookmarkId(href: string): Promise<string> {
   return sha256Id(href); // fallback before init() completes
 }
 
-export default { getMeta, setMeta, generateMasterKey, getMasterKey, init, ready, bookmarkId };
+export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, init, ready, bookmarkId };

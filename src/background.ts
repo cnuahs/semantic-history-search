@@ -6,7 +6,7 @@ import settings, { SettingValue } from "./settings";
 
 import retriever, { Bookmark } from "./retriever";
 
-import db, { getMeta, setMeta } from "./db";
+import db, { getMeta, setMeta, importMasterKey } from "./db";
 
 import { normalize } from "./utils/url";
 import { sha256 } from "./utils/hash";
@@ -407,6 +407,47 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       });
 
       return true; // keep the channel open
+
+    case "setup-new": {
+      (async () => {
+        try {
+
+          await db.generateMasterKey();
+
+          // return masterKey as hex string
+          const raw = await crypto.subtle.exportKey('raw', db.getMasterKey()!);
+          const hex = Array.from(new Uint8Array(raw))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          sendResponse({ type: 'result', payload: hex });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err as Error });
+        }
+      })();
+      return true;
+    }
+
+    case "setup-join": {
+      (async () => {
+        try {
+          const { masterKeyHex, couchdbUrl } = message.payload;
+
+          await importMasterKey(masterKeyHex);
+
+          // set hmacMigrateDate — migrate any existing bookmarks
+          await setMeta({ hmacMigrateDate: 0 });
+          if (couchdbUrl) {
+            await chrome.storage.local.set({ couchdbUrl });
+          }
+
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+
+      return true;
+    }
 
     default:
       console.warn("Unknown message type:", message.type);
