@@ -189,6 +189,26 @@ export class SearchService {
       }
     });
   }
-  
+
+  async getSyncInfo(): Promise<{ masterKeyHex: string, couchdbUrl: string }> {
+    return chrome.runtime.sendMessage({ type: 'get-sync-info' }).then((response) => {
+      if (!response || response.type !== 'result') {
+        return { masterKeyHex: '', couchdbUrl: '' };
+      }
+      return response.payload as { masterKeyHex: string, couchdbUrl: string };
+    });
+  }
+
+  async setCouchdbUrl(url: string): Promise<void> {
+    return chrome.runtime.sendMessage({
+      type: 'set-sync-url',
+      payload: url,
+    }).then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Failed to save CouchDB URL.');
+      }
+    });
+  }
+
   constructor() {}
 }

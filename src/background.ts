@@ -449,6 +449,30 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       return true;
     }
 
+    case "get-sync-info": {
+      (async () => {
+        try {
+          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+          const raw = await crypto.subtle.exportKey('raw', db.getMasterKey()!);
+          const hex = Array.from(new Uint8Array(raw))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          sendResponse({ type: 'result', payload: { masterKeyHex: hex, couchdbUrl: couchdbUrl ?? '' } });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err as Error });
+        }
+      })();
+
+      return true;
+    }
+
+    case "set-sync-url":
+      chrome.storage.local.set({ couchdbUrl: message.payload })
+        .then(() => sendResponse({ type: 'result', payload: null }))
+        .catch((err) => sendResponse({ type: 'error', payload: err as Error }));
+
+      return true;
+
     default:
       console.warn("Unknown message type:", message.type);
 

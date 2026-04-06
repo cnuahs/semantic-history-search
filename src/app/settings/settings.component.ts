@@ -6,24 +6,12 @@ import {
   FormArray,
   FormBuilder,
 } from "@angular/forms";
-import { Router, RouterLink } from "@angular/router";
 
 import { SettingsService, Setting } from "../settings.service";
 
-import { ActionsComponent } from "../actions/actions.component";
-
-// import { Pipe, PipeTransform } from '@angular/core';
-
-// @Pipe({name: 'names', standalone: true, pure: true})
-// export class NamesPipe implements PipeTransform {
-//   transform(value: any) : any {
-//     return Object.keys(value)
-//   }
-// }
-
 @Component({
   selector: "app-settings",
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, ActionsComponent],
+  imports: [FormsModule, ReactiveFormsModule],
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
 })
@@ -32,8 +20,9 @@ export class SettingsComponent implements OnInit {
 
   form: FormGroup;
 
+  savedMessage: string = '';
+
   constructor(
-    private router: Router,
     private settingsService: SettingsService,
     private formBuilder: FormBuilder,
   ) {
@@ -104,11 +93,13 @@ export class SettingsComponent implements OnInit {
 
     this.settingsService.set(this.settings ? this.settings : []);
 
-    this.router.navigate(["/"]);
+    this.savedMessage = 'Saved ✓';
+    setTimeout(() => this.savedMessage = '', 2000);
   }
 
   onCancel() {
-    this.router.navigate(["/"]);
+    // revert form to last saved state by re-fetching settings
+    this.ngOnInit();
   }
 
   isArray(value: any) {

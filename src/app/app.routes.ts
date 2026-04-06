@@ -4,7 +4,7 @@ import { inject } from '@angular/core';
 import { SearchService } from './search.service';
 
 import { HomeComponent } from "./home/home.component";
-import { SettingsComponent } from "./settings/settings.component";
+import { SettingsTabsComponent } from "./settings-tabs/settings-tabs.component";
 import { DashboardComponent } from "./dashboard/dashboard.component";
 
 import { SetupComponent } from "./setup/setup.component";
@@ -22,7 +22,7 @@ const setupComplete: CanMatchFn = () => {
 
 export const routes: Routes = [
   { path: "", title: "Home", canMatch: [setupComplete], component: HomeComponent, pathMatch: "full" },
-  { path: "settings", title: "Settings", component: SettingsComponent },
+  { path: "settings", title: "Settings", component: SettingsTabsComponent },
   { path: "dashboard", title: "Dashboard", component: DashboardComponent },
   { path: "setup", title: "Setup", component: SetupComponent },
   { path: "**", redirectTo: "", pathMatch: "full" },
