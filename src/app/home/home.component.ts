@@ -18,6 +18,8 @@ export class HomeComponent implements OnInit {
   results: any[] = [];
   mode: 'history' | 'search' = 'history';
 
+  retrieverReady: boolean = true;
+
   historyLimitDays: number = 90; // limit (in days) on history displayed in the history view (configurable via settings)
 
   showUnindexed: boolean = false; // show only indexed bookmarks by default
@@ -44,10 +46,17 @@ export class HomeComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.settingsService.get('history-limit-days').then((settings) => {
-      const setting = Array.isArray(settings) ? settings[0] : settings;
-      this.historyLimitDays = Number(setting?.value) || 90;
-      this.handleSearch(); // fetch history
+    this.searchService.status().then(({ retrieverReady }) => {
+      this.retrieverReady = retrieverReady;
+      if (!retrieverReady) {
+        this.isLoading = false;
+        return;
+      }
+      this.settingsService.get('history-limit-days').then((settings) => {
+        const setting = Array.isArray(settings) ? settings[0] : settings;
+        this.historyLimitDays = Number(setting?.value) || 90;
+        this.handleSearch(); // fetch history
+      });
     });
   }
 
