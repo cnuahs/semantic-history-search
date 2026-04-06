@@ -52,6 +52,17 @@
     </div>
   </div>
   <div class="w-full justify-items-center bg-slate-100 grow">
-    <app-results [results]="results" [mode]="mode" [isLoading]="isLoading" [(showUnindexed)]="showUnindexed" (showUnindexedChange)="handleSearch()"></app-results>
+    @if (!retrieverReady) {
+      <div class="p-4 flex flex-col gap-2 items-center">
+        <p class="text-sm text-slate-600">
+          The extension failed to initialise. Please check your settings.
+        </p>
+        <a routerLink="settings" class="text-sm text-cyan-500 hover:text-cyan-700">
+          Open settings
+        </a>
+      </div>
+    } @else {
+      <app-results [results]="results" [mode]="mode" [isLoading]="isLoading" [(showUnindexed)]="showUnindexed" (showUnindexedChange)="handleSearch()"></app-results>
+    }
   </div>
 </div>

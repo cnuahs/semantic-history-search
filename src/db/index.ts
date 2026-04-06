@@ -4,11 +4,15 @@
 
 import PouchDB from 'pouchdb';
 import pouchdbUpsert from 'pouchdb-upsert';
+
 PouchDB.plugin(pouchdbUpsert);
 
 export const db = new PouchDB('shs-bookmarks');
 
+//
 // metadata document helpers
+//
+
 export async function getMeta(): Promise<Record<string, any>> {
   try {
     const doc = await db.get('meta') as any;
@@ -21,3 +25,81 @@ export async function getMeta(): Promise<Record<string, any>> {
 export async function setMeta(fields: Record<string, any>): Promise<void> {
   await db.upsert('meta', (doc) => ({ ...doc, ...fields }));
 }
+
+//
+// encryption
+//
+
+let _masterKey: CryptoKey | null = null;
+
+// generate a new masterKey and store in chrome.storage.local
+// called from migration_20260404 (existing users) and the setup wizard (new users)
+export async function generateMasterKey(): Promise<void> {
+  const masterKey = await crypto.subtle.generateKey(
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    true,
+    ['sign'],
+  );
+  const raw = await crypto.subtle.exportKey('raw', masterKey);
+  await chrome.storage.local.set({ masterKey: Array.from(new Uint8Array(raw)) });
+  _masterKey = masterKey;
+  console.log('db.generateMasterKey(): masterKey generated and stored.');
+}
+
+// import a masterKey from a hex string (used during join existing sync setup)
+export async function importMasterKey(hex: string): Promise<void> {
+  const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
+  const masterKey = await crypto.subtle.importKey(
+    'raw',
+    bytes,
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    true,
+    ['sign'],
+  );
+  await chrome.storage.local.set({ masterKey: Array.from(bytes) });
+  _masterKey = masterKey;
+  console.log('db.importMasterKey(): masterKey imported and stored.');
+}
+
+export function getMasterKey(): CryptoKey | null {
+  return _masterKey;
+}
+
+// retrieve _masterKey on service worker startup
+//
+// note: must be called (and resolve?) before retriever initialisation...
+export async function init(): Promise<void> {
+  const { masterKey: raw } = await chrome.storage.local.get('masterKey');
+  if (!raw) {
+    console.log('db.init(): no masterKey found — setup required.');
+    return;
+  }
+  _masterKey = await crypto.subtle.importKey(
+    'raw',
+    new Uint8Array(Object.values(raw as Record<string, number>)),
+    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+    true,
+    ['sign'],
+  );
+  console.log('db.init(): masterKey loaded.');
+}
+
+export function ready(): boolean {
+  return _masterKey !== null;
+}
+
+//
+// bookmark IDs
+//
+
+import { sha256Id, hmacId } from '../utils/id';
+
+// calculate bookmark ID using _masterKey
+export async function bookmarkId(href: string): Promise<string> {
+  if (_masterKey) {
+    return hmacId(_masterKey, href);
+  }
+  return sha256Id(href); // fallback before init() completes
+}
+
+export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, init, ready, bookmarkId };

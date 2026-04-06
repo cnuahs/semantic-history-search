@@ -6,10 +6,11 @@ import settings, { SettingValue } from "./settings";
 
 import retriever, { Bookmark } from "./retriever";
 
-import { getMeta, setMeta } from "./db";
+import db, { getMeta, setMeta, importMasterKey } from "./db";
 
 import { normalize } from "./utils/url";
 import { sha256 } from "./utils/hash";
+import { bookmarkId } from "./db";
 
 // track tabs opened by us for refreshing
 // 
@@ -107,7 +108,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
   switch (message.type) {
     case "add-bookmark":
       const info = message.payload;
-      console.log("Host:", info.host);
+      console.log("href:", info.href);
 
       const force = sender.tab?.id !== undefined && refreshing.has(sender.tab.id); // force embedding/upserting
 
@@ -124,10 +125,11 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
       // calculate hash of .href to use as the bookmark id
       Promise.all([
-        sha256(normalize(info.href)),
-        sha256(info.href),
-      ]).then(async ([normHash, rawHash]) => {
-        console.log("SHA256 (normalised): %s", normHash);
+        bookmarkId(info.href), // normalizes href and applies active hashing scheme (SHA-256 or HMAC-SHA256)
+        sha256(normalize(info.href)), // legacy normalised hash... matches bookmarks created before HMAC was implemented
+        sha256(info.href), // legacy un-normalized (raw) hash...  matches bookmarks created before normalization was implemented
+      ]).then(async ([id, normHash, rawHash]) => {
+        console.log("id:", id);
 
         if (force) {
           // refresh path
@@ -140,17 +142,21 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
           }
           
           // update metadata, embed, upsert (preserve visits etc.)
-          let bmk = (await retriever.select(b => b.id === normHash, 1))[0] as Bookmark;
-          if (!bmk) {
-            // look for the bookmark under rawHash (legacy)
+          let bmk = (await retriever.select(b => b.id === id, 1))[0] as Bookmark;
+          if (!bmk && normHash !== id) {
+            // look for the bookmark under normalised SHA-256 (pre-HMAC)
+            bmk = (await retriever.select(b => b.id === normHash, 1))[0] as Bookmark;
+          }
+          if (!bmk && rawHash !== normHash) {
+            // look for the bookmark under raw SHA-256 (pre-normalisation)
             bmk = (await retriever.select(b => b.id === rawHash, 1))[0] as Bookmark;
-            if (!bmk) {
-              // should never end up here... this path shouldn't be taken without a bookmark to refresh
-              // console.warn("Reindex: bookmark not found for either hash:", normHash, rawHash);
-              const p = refreshing.get(sender.tab!.id!);
-              if (p) p.reject(new Error("Refresh: bookmark not found."));
-              return;
-            }
+          }
+          if (!bmk) {
+            // should never end up here... this path shouldn't be taken without a bookmark to refresh
+            // console.warn("Reindex: bookmark not found for:", id, normHash, rawHash);
+            const p = refreshing.get(sender.tab!.id!);
+            if (p) p.reject(new Error("Refresh: bookmark not found."));
+            return;
           }
 
           if (!bmk.id) {
@@ -185,31 +191,48 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // normal add-bookmark path
 
-        // check for existing bookmark under normalised hash
-        let bmk = (await retriever.select(b => b.id === normHash, 1))[0];
+        // check for existing bookmark under current id scheme
+        let bmk = (await retriever.select(b => b.id === id, 1))[0];
         if (bmk) {
-          console.log("Found bookmark (normalised):", bmk.href);
-          const p = retriever.update(normHash, { visits: [...bmk.visits, Date.now()] });
+          console.log("Found bookmark:", bmk.href);
+          const p = retriever.update(id, { visits: [...bmk.visits, Date.now()] });
 
           // attempt indexing if page was previously unreaderable but is now readerable
           if (!bmk.indexed && info.text) {
-            console.log("Lazy re-index (normalised):", bmk.href);
-            p.then(() => retriever.update(normHash, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
+            console.log("Lazy re-index:", bmk.href);
+            p.then(() => retriever.update(id, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
           }
 
           return;
         }
 
-        // check for existing bookmark under unnormalised (raw) hash (legacy)
+        // check for existing bookmark under normalised SHA-256 (pre-HMAC legacy)
+        if (normHash !== id) {
+          bmk = (await retriever.select(b => b.id === normHash, 1))[0];
+          if (bmk) {
+            console.log("Found bookmark (pre-HMAC):", bmk.href);
+            const p = retriever.update(normHash, { visits: [...bmk.visits, Date.now()] });
+
+            // attempt indexing if page was previously unreaderable but is now readerable
+            if (!bmk.indexed && info.text) {
+              console.log("Lazy re-index (pre-HMAC):", bmk.href);
+              p.then(() => retriever.update(normHash, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
+            }
+
+            return;
+          }
+        }
+
+        // check for existing bookmark under raw SHA-256 (pre-normalisation legacy)
         if (rawHash !== normHash) {
           bmk = (await retriever.select(b => b.id === rawHash, 1))[0];
           if (bmk) {
-            console.log("Found bookmark (unnormalised):", bmk.href);
+            console.log("Found bookmark (pre-normalisation):", bmk.href);
             const p = retriever.update(rawHash, { visits: [...bmk.visits, Date.now()] });
 
             // attempt indexing if page was previously unreaderable but is now readerable
             if (!bmk.indexed && info.text) {
-              console.log("Lazy re-index (unnormalised):", bmk.href);
+              console.log("Lazy re-index (pre-normalisation):", bmk.href);
               p.then(() => retriever.update(rawHash, { title: info.title, excerpt: info.excerpt }, { text: info.text }));
             }
 
@@ -219,7 +242,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // new bookmark
         console.log("New bookmark:", normalize(info.href));
-        retriever.add(normHash, { ...info, href: normalize(info.href) }); // add the bookmark, upsert embeddings etc.
+        retriever.add(id, { ...info, href: normalize(info.href) });
       });
 
       return false; // close the channel
@@ -296,7 +319,7 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
         // register resolve callback before injecting — avoids a race where
         // add-bookmark fires before the promise is registered
-        const TIMEOUT_MS = 60000; // 60s timeout
+        const TIMEOUT_MS = 180_000; // 3 minute timeout?
         let timeout: ReturnType<typeof setTimeout>;
 
         const done = new Promise<void>((resolve, reject) => {
@@ -375,6 +398,81 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         
       return true; // keep the channel open
 
+    case "get-status":
+      retriever.ready().then((ready) => {
+        sendResponse({ type: "result", payload: {
+          setupRequired: !db.ready(),
+          retrieverReady: ready,
+        }});
+      });
+
+      return true; // keep the channel open
+
+    case "setup-new": {
+      (async () => {
+        try {
+
+          await db.generateMasterKey();
+
+          // return masterKey as hex string
+          const raw = await crypto.subtle.exportKey('raw', db.getMasterKey()!);
+          const hex = Array.from(new Uint8Array(raw))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          sendResponse({ type: 'result', payload: hex });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err as Error });
+        }
+      })();
+      return true;
+    }
+
+    case "setup-join": {
+      (async () => {
+        try {
+          const { masterKeyHex, couchdbUrl } = message.payload;
+
+          await importMasterKey(masterKeyHex);
+
+          // set hmacMigrateDate — migrate any existing bookmarks
+          await setMeta({ hmacMigrateDate: 0 });
+          if (couchdbUrl) {
+            await chrome.storage.local.set({ couchdbUrl });
+          }
+
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+
+      return true;
+    }
+
+    case "get-sync-info": {
+      (async () => {
+        try {
+          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+          const raw = await crypto.subtle.exportKey('raw', db.getMasterKey()!);
+          const hex = Array.from(new Uint8Array(raw))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+          sendResponse({ type: 'result', payload: { masterKeyHex: hex, couchdbUrl: couchdbUrl ?? '' } });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err as Error });
+        }
+      })();
+
+      return true;
+    }
+
+    case "set-sync-url":
+      chrome.storage.local.set({ couchdbUrl: message.payload })
+        .then(() => sendResponse({ type: 'result', payload: null }))
+        .catch((err) => sendResponse({ type: 'error', payload: err as Error }));
+
+      return true;
+
     default:
       console.warn("Unknown message type:", message.type);
 
@@ -436,7 +534,14 @@ addOnChunkedMessageListener(function (
 
 import maintenance from "./maintenance";
 
-maintenance.init();
+retriever.ready().then((ready) => {
+  if (!ready) {
+    console.warn('background: not ready —', db.ready() ? 'retriever failed to initialise.' : 'setup required.');
+    return;
+  }
+
+  maintenance.init();
+});
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "shs-maintenance") {
@@ -446,19 +551,3 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     });
   }
 });
-
-// // create a new periodic alarm
-// chrome.alarms.create("shs-alarm", {
-//   delayInMinutes: 0,
-//   periodInMinutes: 2
-// });
-
-// // call this synchronously at startup to ensure we get woken
-// // up when the alarm times out
-// chrome.alarms.onAlarm.addListener(function(alarm) {
-//   if (alarm.name === "shs-alarm") {
-//     console.log('Alarm timed out:', new Date().toString());
-//     chrome.scripting.getRegisteredContentScripts()
-//       .then(scripts => console.log("registered content scripts", scripts));
-//   }
-// });

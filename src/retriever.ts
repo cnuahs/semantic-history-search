@@ -12,7 +12,7 @@
 //   Object.assign(localCache, items);
 // });
 
-import { db } from './db';
+import { db, init as dbInit, ready as dbReady } from './db';
 import { migrate } from './db/migrations';
 
 /*
@@ -440,21 +440,22 @@ export class InMemoryLocalStore extends BaseStore<string, Document> implements D
     }));
   }}
 
-// const dStore = new InMemoryStore<Uint8Array>(); // FIXME: get from storage.local?
 const dStore = new InMemoryLocalStore({}); // empty store
-// initLocalCache.then(() => {
-//   console.log("Loaded local cache:", localCache);
-//   dStore.store = localCache.bookmarks as Record<string, Bookmark>;
-// });
-const initLocalCache = migrate(db).then(() =>
-  db.allDocs({ include_docs: true }).then((result) => {
+
+const initLocalCache = migrate(db).then(() => dbInit()).then(() => {
+  if (!dbReady()) {
+    // db not ready — setup required, resolve retriever as not ready
+    resolveReady(false);
+    return Promise.resolve();
+  }
+  return db.allDocs({ include_docs: true }).then((result) => {
     result.rows
       .filter((row) => !row.id.startsWith('migration_') && row.id !== 'meta' && row.id !== 'settings')
       .forEach((row) => {
         dStore.store[row.id] = Bookmark.fromDocument(row.doc as unknown as Document);
       });
-  })
-);
+  });
+});
 
 /*
  * bookmark abstraction...
@@ -571,12 +572,12 @@ import { ScoredParentDocumentRetriever } from "./scored-retriever";
 
 let retriever: ScoredParentDocumentRetriever | null = null;
 
-let resolveReady: () => void;
-const readyPromise = new Promise<void>((resolve) => {
+let resolveReady: (value: boolean) => void;
+const readyPromise = new Promise<boolean>((resolve) => {
   resolveReady = resolve;
 });
 
-function ready(): Promise<void> {
+function ready(): Promise<boolean> {
   return readyPromise;
 }
 
@@ -670,12 +671,12 @@ settings.get().then((_settings) => {
     .then((_retriever) => {
       console.log("Retriever initialised.");
       retriever = _retriever;
-      resolveReady();
+      resolveReady(true);
     })
     .catch((err) => {
       console.error("Retriever initialisation failed:", err);
       retriever = null;
-      // throw err;
+      resolveReady(false);
     });
 });
 
@@ -1121,6 +1122,7 @@ export async function rename(oldId: string, newId: string): Promise<void> {
     excerpt: existingOld.excerpt,
     visits: existingOld.visits,
     nrVectors: existingOld.nrVectors,
+    indexed: existingOld.indexed,
   });
   await addBookmark({ [newId]: newBmk });
 
