@@ -445,7 +445,7 @@ const dStore = new InMemoryLocalStore({}); // empty store
 const initLocalCache = migrate(db).then(() => dbInit()).then(() => {
   if (!dbReady()) {
     // db not ready — setup required, resolve retriever as not ready
-    resolveReady(false);
+    _resolveInit(false);    // resolve waitForInit() — setup required
     return Promise.resolve();
   }
   return db.allDocs({ include_docs: true }).then((result) => {
@@ -572,13 +572,18 @@ import { ScoredParentDocumentRetriever } from "./scored-retriever";
 
 let retriever: ScoredParentDocumentRetriever | null = null;
 
-let resolveReady: (value: boolean) => void;
-const readyPromise = new Promise<boolean>((resolve) => {
-  resolveReady = resolve;
+let _resolveInit: (value: boolean) => void;
+const _initPromise = new Promise<boolean>((resolve) => {
+  _resolveInit = resolve;
 });
 
 function ready(): Promise<boolean> {
-  return readyPromise;
+  return Promise.resolve(retriever !== null);
+}
+
+// used by background.ts on startup — waits for first initialisation
+function waitForInit(): Promise<boolean> {
+  return _initPromise;
 }
 
 import settings, { Setting } from "./settings";
@@ -671,12 +676,12 @@ settings.get().then((_settings) => {
     .then((_retriever) => {
       console.log("Retriever initialised.");
       retriever = _retriever;
-      resolveReady(true);
+      _resolveInit(true);    // resolve waitForInit() — first init succeeded
     })
     .catch((err) => {
       console.error("Retriever initialisation failed:", err);
       retriever = null;
-      resolveReady(false);
+      _resolveInit(false);   // resolve waitForInit() — first init failed
     });
 });
 
@@ -702,7 +707,6 @@ settings.addListener(
       .catch((err) => {
         console.error("Retriever initialisation failed:", err);
         retriever = null;
-        // throw err;
       });
   },
 );
@@ -1130,4 +1134,4 @@ export async function rename(oldId: string, newId: string): Promise<void> {
   await dStore.mdelete([oldId]);
 }
 
-export default { add, del, update, select, search, exists, ready, toJSON, fromJSON, indexStats, getNrVectors, rename };
+export default { add, del, update, select, search, exists, ready, waitForInit, toJSON, fromJSON, indexStats, getNrVectors, rename };

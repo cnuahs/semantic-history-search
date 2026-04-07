@@ -534,7 +534,7 @@ addOnChunkedMessageListener(function (
 
 import maintenance from "./maintenance";
 
-retriever.ready().then((ready) => {
+retriever.waitForInit().then((ready) => {
   if (!ready) {
     console.warn('background: not ready —', db.ready() ? 'retriever failed to initialise.' : 'setup required.');
     return;
