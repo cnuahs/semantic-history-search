@@ -4,6 +4,8 @@
 
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+
 import { SearchService } from '../search.service';
 
 type SetupStep =
@@ -29,7 +31,10 @@ export class SetupComponent {
   isWorking: boolean = false;
   copied: boolean = false;       // clipboard feedback
 
-  constructor(private searchService: SearchService) {}
+  constructor(
+    private router: Router,
+    private searchService: SearchService) {
+  }
 
   ngOnInit() {
     this.version = chrome.runtime.getManifest().version;
@@ -74,7 +79,8 @@ export class SetupComponent {
     try {
       const hex = this.masterKeyInput.replace(/\s/g, '');
       await this.searchService.setupJoin(hex, this.couchdbUrl);
-      chrome.runtime.reload(); // TODO - consider a more elegant way to transition to the main app
+      await this.searchService.setupComplete();
+      this.router.navigate(['/']);
     } catch (err) {
       this.errorMessage = err instanceof Error ? err.message : 'Failed to join sync. Please check your master key and CouchDB URL.';
       console.error('SetupComponent.onJoinComplete()', err);
@@ -85,9 +91,9 @@ export class SetupComponent {
 
   // --- CouchDB URL step (new install path only) ---
 
-  onSkipCouchdb() {
+  async onSkipCouchdb() {
     this.couchdbUrl = ''; // ensure empty string if user wants to skip
-    this.onCouchdbComplete();
+    await this.onCouchdbComplete();
   }
 
   async onCouchdbComplete() {
@@ -98,7 +104,8 @@ export class SetupComponent {
         this.masterKeyHex.replace(/\s/g, ''),
         this.couchdbUrl
       );
-      chrome.runtime.reload(); // TODO - consider a more elegant way to transition to the main app
+      await this.searchService.setupComplete();
+      this.router.navigate(['/']);
     } catch (err) {
       this.errorMessage = 'Failed to complete setup. Please try again.';
       console.error('SetupComponent.onCouchdbComplete()', err);

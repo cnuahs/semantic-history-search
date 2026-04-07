@@ -711,6 +711,27 @@ settings.addListener(
   },
 );
 
+// reinitialise the retriever, e.g., after setup
+export async function reinit(): Promise<void> {
+  const _settings = await settings.get();
+  const ss = Object.fromEntries(
+    (_settings as Setting[]).map((value) => [value.name, { value: value.value }])
+  );
+  return new Promise<void>((resolve) => {
+    setup(ss)
+      .then((_retriever) => {
+        console.log('Retriever reinitialised after setup.');
+        retriever = _retriever;
+        resolve();
+      })
+      .catch((err) => {
+        console.error('Retriever reinitialisation failed:', err);
+        retriever = null;
+        resolve(); // resolve rather than reject — caller checks ready() state
+      });
+  });
+}
+
 // delete vectors from vStore
 async function deleteVectors(id: string): Promise<void> {
   const vStore = retriever!.vectorstore as PineconeStore; // local ref?
@@ -1134,4 +1155,4 @@ export async function rename(oldId: string, newId: string): Promise<void> {
   await dStore.mdelete([oldId]);
 }
 
-export default { add, del, update, select, search, exists, ready, waitForInit, toJSON, fromJSON, indexStats, getNrVectors, rename };
+export default { add, del, update, select, search, exists, ready, waitForInit, reinit, toJSON, fromJSON, indexStats, getNrVectors, rename };
