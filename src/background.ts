@@ -449,6 +449,20 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       return true;
     }
 
+    case "reinit": { // called to (re-)initialise the db and retriever, e.g., when the setup flow is complete
+      (async () => {
+        try {
+          await db.init();
+          await retriever.reinit();
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+
+      return true;
+    }
+
     case "get-sync-info": {
       (async () => {
         try {
@@ -534,7 +548,7 @@ addOnChunkedMessageListener(function (
 
 import maintenance from "./maintenance";
 
-retriever.ready().then((ready) => {
+retriever.waitForInit().then((ready) => {
   if (!ready) {
     console.warn('background: not ready —', db.ready() ? 'retriever failed to initialise.' : 'setup required.');
     return;

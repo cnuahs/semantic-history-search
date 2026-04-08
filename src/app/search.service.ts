@@ -190,6 +190,14 @@ export class SearchService {
     });
   }
 
+  async setupComplete(): Promise<void> {
+    return chrome.runtime.sendMessage({ type: 'reinit' }).then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Reinitialisation failed.');
+      }
+    });
+  }
+
   async getSyncInfo(): Promise<{ masterKeyHex: string, couchdbUrl: string }> {
     return chrome.runtime.sendMessage({ type: 'get-sync-info' }).then((response) => {
       if (!response || response.type !== 'result') {
