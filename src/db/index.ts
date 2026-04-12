@@ -97,4 +97,4 @@ export async function bookmarkId(href: string): Promise<string> {
   return sha256Id(href); // fallback before init() completes
 }
 
-export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, init, ready, bookmarkId };
+export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, getEncryptionKey, init, ready, bookmarkId };

@@ -481,9 +481,24 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
     }
 
     case "set-sync-url":
-      chrome.storage.local.set({ couchdbUrl: message.payload })
-        .then(() => sendResponse({ type: 'result', payload: null }))
-        .catch((err) => sendResponse({ type: 'error', payload: err as Error }));
+      (async () => {
+        try {
+          const couchdbUrl = message.payload as string;
+          await chrome.storage.local.set({ couchdbUrl });
+
+          if (couchdbUrl) {
+            const encryptionKey = db.getEncryptionKey();
+            if (!encryptionKey) throw new Error('Encryption key not available.');
+            await sync.startSync(encryptionKey, couchdbUrl);
+          } else {
+            await sync.stopSync();
+          }
+
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
 
       return true;
 
@@ -548,13 +563,25 @@ addOnChunkedMessageListener(function (
 
 import maintenance from "./maintenance";
 
-retriever.waitForInit().then((ready) => {
+import sync from "./db/sync";
+
+retriever.waitForInit().then(async (ready) => {
   if (!ready) {
     console.warn('background: not ready —', db.ready() ? 'retriever failed to initialise.' : 'setup required.');
     return;
   }
 
   maintenance.init();
+
+  const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+  if (couchdbUrl) {
+    const encryptionKey = db.getEncryptionKey();
+    if (encryptionKey) {
+      await sync.startSync(encryptionKey, couchdbUrl as string);
+    } else {
+      console.warn('background: CouchDB URL configured but encryption key not available — sync not started.');
+    }
+  }
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
