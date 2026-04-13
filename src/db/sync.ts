@@ -10,7 +10,7 @@ PouchDB.plugin(transform);
 import { encryptDoc, decryptDoc } from './crypto';
 
 export type SyncStatus = {
-  state: 'active' | 'paused' | 'error';
+  state: 'active' | 'paused' | 'error' | 'stopped';
   error?: string;
   lastSynced?: number; // unix timestamp (ms)
 };
@@ -23,6 +23,27 @@ let _listeners: ((status: SyncStatus) => void)[] = [];
 function notify(status: SyncStatus): void {
   _status = status;
   _listeners.forEach(l => l(status));
+  updateBadge(status);
+}
+
+function updateBadge(status: SyncStatus): void {
+  switch (status.state) {
+    case 'active':
+      chrome.action.setBadgeText({ text: '↻' });
+      chrome.action.setBadgeBackgroundColor({ color: '#0ea5e9' }); // sky-500
+      break;
+    case 'error':
+      chrome.action.setBadgeText({ text: '!' });
+      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }); // red-500
+      break;
+    case 'paused':
+      // healthy/up to date — clear the badge
+      chrome.action.setBadgeText({ text: '' });
+      break;
+    case 'stopped':
+      chrome.action.setBadgeText({ text: '' });
+      break;
+  }
 }
 
 export function getStatus(): SyncStatus | null {
@@ -100,6 +121,7 @@ export async function stopSync(): Promise<void> {
     _syncDb = null;
   }
 
+  notify({ state: 'stopped' });
   _status = null;
   console.log('sync.stopSync(): sync stopped.');
 }
