@@ -502,6 +502,23 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
 
       return true;
 
+    case "get-sync-status": {
+      (async () => {
+        try {
+          const status = sync.getStatus();
+          const { lastSynced } = await chrome.storage.local.get('lastSynced');
+          sendResponse({ type: 'result', payload: status
+            ? { ...status, lastSynced: status.lastSynced ?? lastSynced ?? null }
+            : null
+          });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+
+      return true;
+    }
+
     default:
       console.warn("Unknown message type:", message.type);
 

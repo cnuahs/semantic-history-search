@@ -218,5 +218,14 @@ export class SearchService {
     });
   }
 
+  async getSyncStatus(): Promise<{ state: string, error?: string, lastSynced?: number } | null> {
+    return chrome.runtime.sendMessage({ type: 'get-sync-status' }).then((response) => {
+      if (!response || response.type !== 'result') {
+        return null;
+      }
+      return response.payload as { state: string, error?: string, lastSynced?: number } | null;
+    });
+  }
+
   constructor() {}
 }
