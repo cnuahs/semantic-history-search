@@ -58,7 +58,7 @@
           <span class="text-gray-500">Status:</span>
           <span
             [class.text-cyan-600]="syncState === 'Up to date'"
-            [class.text-blue-500]="syncState === 'Syncing…'"
+            [class.text-blue-500]="syncState === 'Syncing'"
             [class.text-red-500]="syncState === 'Error'"
             [class.text-gray-500]="syncState === 'Not configured'"
           >{{ syncState }}</span>

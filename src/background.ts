@@ -594,6 +594,9 @@ retriever.waitForInit().then(async (ready) => {
   if (couchdbUrl) {
     const encryptionKey = db.getEncryptionKey();
     if (encryptionKey) {
+      const intervalSetting = await settings.get('sync-interval');
+      const intervalMinutes = Number(Array.isArray(intervalSetting) ? intervalSetting[0]?.value : intervalSetting?.value) || 5;
+
       await sync.startSync(encryptionKey, couchdbUrl as string);
     } else {
       console.warn('background: CouchDB URL configured but encryption key not available — sync not started.');
@@ -608,4 +611,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       maintenance.schedule(10); // wait 10 minutes if there was an error
     });
   }
+
+  if (alarm.name === "shs-sync") {
+    sync.run().catch(err => {
+      console.warn("Sync run failed:", err.message);
+    });
+  }
+});
+
+settings.addListener(['sync-interval'], async (changes) => {
+  const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+  const encryptionKey = db.getEncryptionKey();
+
+  if (!couchdbUrl || !encryptionKey) return;
+
+  console.log('background: sync-interval changed, restarting sync.');
+  await sync.startSync(encryptionKey, couchdbUrl as string);
 });

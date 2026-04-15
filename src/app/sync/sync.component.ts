@@ -64,12 +64,14 @@ export class SyncComponent implements OnInit, OnDestroy {
         this.syncError = '';
         return;
       }
+
       switch (status.state) {
-        case 'active':  this.syncState = 'Syncing…';     break;
-        case 'paused':  this.syncState = 'Up to date';   break;
-        case 'error':   this.syncState = 'Error';        break;
+        case 'syncing': this.syncState = 'Syncing';       break;
+        case 'ok':      this.syncState = 'Up to date';     break;
+        case 'error':   this.syncState = 'Error';          break;
         case 'stopped': this.syncState = 'Not configured'; break;
       }
+
       this.syncError = status.error ?? '';
       this.lastSynced = status.lastSynced ?? null;
     }).catch((err) => {
