@@ -453,6 +453,16 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       (async () => {
         try {
           await db.init();
+
+          // start sync if a sync URL is configured (e.g. after setup-join)
+          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+          if (couchdbUrl) {
+            const encryptionKey = db.getEncryptionKey();
+            if (encryptionKey) {
+              await sync.startSync(encryptionKey, couchdbUrl as string);
+            }
+          }
+
           await retriever.reinit();
           sendResponse({ type: 'result', payload: null });
         } catch (err) {
