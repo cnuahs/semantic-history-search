@@ -69,9 +69,17 @@ export async function startSync(
   encryptionKey: CryptoKey,
   couchdbUrl: string,
 ): Promise<void> {
-  // create a separate PouchDB instance pointing at the same underlying IndexedDB,
-  // with encryption transforms applied exclusively for the sync path — the main
-  // db instance used by the application remains untouched (plaintext)
+  // drop any existing instances
+  //
+  // note: we don't call .close() on _syncDb as it would also close the underlying
+  //       IndexedDB shared with the main db instance
+  _syncDb = null;
+  _remoteDb = null;
+
+  // create a new instance (pointing at the same underlying IndexedDB), with encryption
+  // transforms applied exclusively for the sync path
+  // 
+  // note: the main db instance used by the application remains untouched (plaintext)
   _syncDb = new PouchDB('shs-bookmarks');
   (_syncDb as any).transform({
     incoming: async (doc: Record<string, any>) => decryptDoc(doc, encryptionKey),
@@ -100,10 +108,17 @@ export async function startSync(
 export async function stopSync(): Promise<void> {
   await chrome.alarms.clear(ALARM_NAME);
 
-  if (_syncDb) {
-    await _syncDb.close();
-    _syncDb = null;
+  // close the remote db connection (doesn't affect the local IndexedDB)
+  if (_remoteDb) {
+    await _remoteDb.close();
+    _remoteDb = null;
   }
+
+  // drop _syncDb reference without closing
+  // 
+  // note: calling .close() would also close the underlying IndexedDB shared with
+  //       the main db instance
+  _syncDb = null;
 
   notify({ state: 'stopped' });
   console.log('sync.stopSync(): sync alarm cancelled.');
