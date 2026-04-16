@@ -31,6 +31,7 @@ const _defaults = {
   "indexed-half-life": {},
   "unindexed-half-life": {},
   "purge-threshold": {},
+  "sync-interval": {}
 };
 
 import { validate as _validate } from "./schemas/settings.validator"; // precompiled schema validation function
