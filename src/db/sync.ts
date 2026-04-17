@@ -7,6 +7,7 @@ import transform from 'transform-pouch';
 
 PouchDB.plugin(transform);
 
+import { db } from './index';
 import { encryptDoc, decryptDoc } from './crypto';
 
 import settings from '../settings';
@@ -20,7 +21,6 @@ export type SyncStatus = {
 const ALARM_NAME = 'shs-sync';
 const DEFAULT_INTERVAL_MINUTES = 5;
 
-let _syncDb: PouchDB.Database | null = null;
 let _remoteDb: PouchDB.Database | null = null;
 
 let _status: SyncStatus = { state: 'stopped' };
@@ -60,6 +60,7 @@ export function getStatus(): SyncStatus {
   return _status;
 }
 
+// return an "unsubscribe" function
 export function addStatusListener(listener: (status: SyncStatus) => void): () => void {
   _listeners.push(listener);
   return () => { _listeners = _listeners.filter(l => l !== listener); };
@@ -70,23 +71,19 @@ export async function startSync(
   couchdbUrl: string,
 ): Promise<void> {
   // drop any existing instances
-  //
-  // note: we don't call .close() on _syncDb as it would also close the underlying
-  //       IndexedDB shared with the main db instance
-  _syncDb = null;
-  _remoteDb = null;
+  if (_remoteDb) {
+    await _remoteDb.close();
+    _remoteDb = null;
+  }
 
-  // create a new instance (pointing at the same underlying IndexedDB), with encryption
-  // transforms applied exclusively for the sync path
+  // create a new instance pointing at the remote CouchDB, and apply encryption transforms
   // 
   // note: the main db instance used by the application remains untouched (plaintext)
-  _syncDb = new PouchDB('shs-bookmarks');
-  (_syncDb as any).transform({
-    incoming: async (doc: Record<string, any>) => decryptDoc(doc, encryptionKey),
-    outgoing: async (doc: Record<string, any>) => encryptDoc(doc, encryptionKey),
+  _remoteDb = new PouchDB(couchdbUrl);  
+  (_remoteDb as any).transform({
+    incoming: async (doc: Record<string, any>) => encryptDoc(doc, encryptionKey),
+    outgoing: async (doc: Record<string, any>) => decryptDoc(doc, encryptionKey),
   });
-
-  _remoteDb = new PouchDB(couchdbUrl);
 
   const syncInterval = await getSyncInterval();
 
@@ -114,19 +111,13 @@ export async function stopSync(): Promise<void> {
     _remoteDb = null;
   }
 
-  // drop _syncDb reference without closing
-  // 
-  // note: calling .close() would also close the underlying IndexedDB shared with
-  //       the main db instance
-  _syncDb = null;
-
   notify({ state: 'stopped' });
   console.log('sync.stopSync(): sync alarm cancelled.');
 }
 
 // run a single one-shot sync cycle — called from the alarm handler in background.ts
 export async function run(): Promise<void> {
-  if (!_syncDb || !_remoteDb) {
+  if (!_remoteDb) {
     console.warn('sync.run(): called but sync is not configured — skipping.');
     return;
   }
@@ -134,7 +125,7 @@ export async function run(): Promise<void> {
   notify({ state: 'syncing', lastSynced: _status.lastSynced });
 
   try {
-    await PouchDB.sync(_syncDb, _remoteDb);
+    await PouchDB.sync(db, _remoteDb);
 
     const lastSynced = Date.now();
     await chrome.storage.local.set({ lastSynced });
