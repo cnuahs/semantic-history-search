@@ -628,13 +628,3 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     });
   }
 });
-
-settings.addListener(['sync-interval'], async (changes) => {
-  const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
-  const encryptionKey = db.getEncryptionKey();
-
-  if (!couchdbUrl || !encryptionKey) return;
-
-  console.log('background: sync-interval changed, restarting sync.');
-  await sync.startSync(encryptionKey, couchdbUrl as string);
-});
