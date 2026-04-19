@@ -1,0 +1,32 @@
+<div class="h-full flex flex-col">
+
+  @if (settings !== null) {
+    <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <app-settings-list [settings]="settings" [form]="form" />
+        <div class="flex flex-row gap-2 items-center place-self-end justify-end">
+          @if (savedMessage) {
+            <span class="text-sm text-cyan-600">{{ savedMessage }}</span>
+          }
+          <input
+            type="submit"
+            [disabled]="!form.valid"
+            class="px-4 py-2 bg-cyan-500 text-white rounded-md"
+            value="Apply"
+          />
+          <input
+            type="button"
+            class="px-4 py-2 bg-slate-200 text-slate-500 rounded-md"
+            value="Cancel"
+            (click)="onCancel()"
+          />
+        </div>
+      </form>
+    </div>
+  } @else {
+    <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
+      <p class="text-sm text-slate-500">Settings could not be loaded.</p>
+    </div>
+  }
+
+</div>
