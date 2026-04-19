@@ -78,6 +78,8 @@ export class SearchSettingsComponent implements OnInit {
   }
 
   onCancel() {
+    // revert form to last saved state by re-fetching settings
+    this.form = this.formBuilder.group({});
     this.ngOnInit();
   }
 }
