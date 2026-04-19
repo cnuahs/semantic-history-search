@@ -111,12 +111,38 @@ function migration_002(settings: any): any {
   return settings;
 }
 
+// 003: assign category 'search' to search and history settings
+function migration_003(settings: any): any {
+  const searchSettings = [
+    'history-limit-days',
+    'search-result-limit',
+    'search-similarity-threshold',
+    'search-child-limit',
+    'search-top-k',
+    'search-length-penalty',
+  ];
+
+  let migrated = false;
+  searchSettings.forEach(key => {
+    if (settings[key] !== undefined && settings[key].category === 'general') {
+      settings[key].category = 'search';
+      migrated = true;
+    }
+  });
+
+  if (migrated) {
+    console.log('Settings migration 003: assigned category search to search and history settings');
+  }
+  return settings;
+}
+
 // add future migrations here, e.g.:
 // function migration_xxx(settings: any): any { ... }
 
 function migrate(settings: any): any {
   settings = migration_001(settings);
   settings = migration_002(settings);
+  settings = migration_003(settings);
   // settings = migration_xxx(settings);
   return settings;
 }
