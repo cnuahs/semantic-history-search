@@ -75,12 +75,49 @@ function migration_001(settings: any): any {
   return settings;
 }
 
+// 002: replace hidden boolean with category string
+function migration_002(settings: any): any {
+  const categories: { [key: string]: string } = {
+    'embedding-model':             'general',
+    'pinecone-index':              'general',
+    'pinecone-namespace':          'general',
+    'pinecone-api-key':            'general',
+    'include-patterns':            'general',
+    'exclude-patterns':            'general',
+    'history-limit-days':          'general',
+    'search-result-limit':         'general',
+    'search-similarity-threshold': 'general',
+    'search-child-limit':          'general',
+    'search-top-k':                'general',
+    'search-length-penalty':       'general',
+    'sync-interval':               'sync',
+  };
+
+  let migrated = false;
+  Object.keys(settings).forEach(key => {
+    if (settings[key].hidden !== undefined) {
+      delete settings[key].hidden;
+      migrated = true;
+    }
+    if (settings[key].category === undefined && categories[key] !== undefined) {
+      settings[key].category = categories[key];
+      migrated = true;
+    }
+  });
+
+  if (migrated) {
+    console.log('Settings migration 002: replaced hidden with category');
+  }
+  return settings;
+}
+
 // add future migrations here, e.g.:
-// function migration_002(settings: any): any { ... }
+// function migration_xxx(settings: any): any { ... }
 
 function migrate(settings: any): any {
   settings = migration_001(settings);
-  // settings = migration_002(settings);
+  settings = migration_002(settings);
+  // settings = migration_xxx(settings);
   return settings;
 }
 
