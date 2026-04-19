@@ -9,9 +9,11 @@ import {
 
 import { SettingsService, Setting } from "../settings.service";
 
+import { SettingsListComponent } from "../settings-list/settings-list.component";
+
 @Component({
   selector: "app-settings",
-  imports: [FormsModule, ReactiveFormsModule],
+  imports: [FormsModule, ReactiveFormsModule, SettingsListComponent],
   templateUrl: "./settings.component.html",
   styleUrl: "./settings.component.css",
 })
@@ -37,7 +39,7 @@ export class SettingsComponent implements OnInit {
     this.settingsService
       .get()
       .then((settings: Setting[]) => {
-        this.settings = settings;
+        this.settings = settings.filter(s => s.category === 'general');
 
         // create form controls
         this.settings?.forEach((setting) => {
@@ -62,23 +64,6 @@ export class SettingsComponent implements OnInit {
       });
   }
 
-  // form helpers
-
-  // get FormArray from form by name
-  getFormArray(name: string): FormArray {
-    return this.form.get(name) as FormArray;
-  }
-
-  // add an item to a FormArray
-  addItem(name: string) {
-    this.getFormArray(name).push(this.formBuilder.control(""));
-  }
-
-  // remove an item from a FormArray
-  delItem(name: string, index: number) {
-    this.getFormArray(name).removeAt(index);
-  }
-
   onSubmit() {
     console.log("SettingsComponent.onSubmit()");
 
@@ -91,22 +76,16 @@ export class SettingsComponent implements OnInit {
       }
     });
 
-    this.settingsService.set(this.settings ? this.settings : []);
-
-    this.savedMessage = 'Saved ✓';
-    setTimeout(() => this.savedMessage = '', 2000);
+    this.settingsService.set(this.settings ? this.settings : [])
+      .then(() => {
+        this.savedMessage = 'Saved ✓';
+        setTimeout(() => this.savedMessage = '', 2000);
+      })
+      .catch((err) => console.error('SettingsComponent.onSubmit()', err));
   }
 
   onCancel() {
     // revert form to last saved state by re-fetching settings
     this.ngOnInit();
   }
-
-  isArray(value: any) {
-    return Array.isArray(value);
-  }
-
-  isNumber(value: any) {
-    return typeof value === 'number';
-  }   
 }

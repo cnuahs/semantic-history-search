@@ -50,6 +50,7 @@
     "@types/pouchdb-upsert": "^2.2.9",
     "@types/transform-pouch": "^1.0.6",
     "@typescript-eslint/parser": "^8.23.0",
+    "ajv-cli": "^5.0.0",
     "autoprefixer": "^10.4.27",
     "eslint": "^10.0.3",
     "jasmine-core": "^6.1.0",
