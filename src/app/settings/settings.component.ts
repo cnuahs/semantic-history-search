@@ -91,10 +91,12 @@ export class SettingsComponent implements OnInit {
       }
     });
 
-    this.settingsService.set(this.settings ? this.settings : []);
-
-    this.savedMessage = 'Saved ✓';
-    setTimeout(() => this.savedMessage = '', 2000);
+    this.settingsService.set(this.settings ? this.settings : [])
+      .then(() => {
+        this.savedMessage = 'Saved ✓';
+        setTimeout(() => this.savedMessage = '', 2000);
+      })
+      .catch((err) => console.error('SettingsComponent.onSubmit()', err));
   }
 
   onCancel() {
