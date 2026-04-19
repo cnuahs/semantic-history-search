@@ -21,7 +21,7 @@ export class SettingsService {
       : (_settings.get() as Promise<Setting[]>);
   }
 
-  set(settings: Setting[]): void {
-    _settings.set(settings);
+  set(settings: Setting[]): Promise<void> {
+    return _settings.set(settings);
   }
 }
