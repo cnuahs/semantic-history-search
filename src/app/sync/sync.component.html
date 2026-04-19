@@ -50,6 +50,28 @@
         autocomplete="off"
       />
     <!-- </div> -->
+
+    <!-- sync status -->
+    @if (form.get('couchdbUrl')?.value) {
+      <div class="my-2 flex flex-col gap-1 font-light text-xs italic">
+        <div class="flex flex-row gap-2">
+          <span class="text-gray-500">Status:</span>
+          <span
+            [class.text-cyan-600]="syncState === 'Up to date'"
+            [class.text-blue-500]="syncState === 'Syncing'"
+            [class.text-red-500]="syncState === 'Error'"
+            [class.text-gray-500]="syncState === 'Not configured'"
+          >{{ syncState }}</span>
+        </div>
+        @if (syncError) {
+          <div class="text-red-500">{{ syncError }}</div>
+        }
+        <div class="flex flex-row gap-2">
+          <span class="text-gray-500">Last synced:</span>
+          <span class="text-gray-500">{{ lastSynced ? (lastSynced | date: 'medium') : 'Never' }}</span>
+        </div>
+      </div>
+    }
   </li>
 
       </ul>

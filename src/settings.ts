@@ -31,6 +31,7 @@ const _defaults = {
   "indexed-half-life": {},
   "unindexed-half-life": {},
   "purge-threshold": {},
+  "sync-interval": {}
 };
 
 import { validate as _validate } from "./schemas/settings.validator"; // precompiled schema validation function
@@ -176,7 +177,7 @@ export async function get(...args: any[]): Promise<Setting | Setting[]> {
       return settings;
     })
     .then(( settings: { [key: string]: any } ) => {
-      if (arguments.length === 0 || args[0] === undefined) {
+      if (args.length === 0 || args[0] === undefined) {
         return Object.entries(settings).map(([key, value]) => {
           value.name = key;
           return value;
@@ -194,19 +195,19 @@ export async function get(...args: any[]): Promise<Setting | Setting[]> {
 
 export function set(...args: any[]): Promise<void> {
   return new Promise<void>(async (resolve, reject) => {
-    if (arguments.length === 0 || args[0] === undefined) {
+    if (args.length === 0 || args[0] === undefined) {
       reject(new Error("No arguments passed to set()."));
     }
-    if (arguments.length > 2) {
+    if (args.length > 2) {
       // too many arguments passed
       // return;
       reject(
         new Error(
-          `Too many arguments to set(). Expected 1 or 2 arguments but received ${arguments.length}.`,
+          `Too many arguments to set(). Expected 1 or 2 arguments but received ${args.length}.`,
         ),
       );
     }
-    if (arguments.length === 1) {
+    if (args.length === 1) {
       // only one argument passed
       if (typeof args[0] === "object") {
         // .set(object)
@@ -227,11 +228,11 @@ export function set(...args: any[]): Promise<void> {
         if (typeof args[1] !== "undefined") {
           // .set(key, value)
           // set the value for key
+          let settings: { [key: string]: any };
 
-          // populate settingsCache from storage.sync
           initSettingsCache
             .then(() => {
-              const settings = JSON.parse(
+              settings = JSON.parse(
                 JSON.stringify(
                   settingsCache.settings
                     ? { ..._defaults, ...settingsCache.settings }
@@ -239,25 +240,28 @@ export function set(...args: any[]): Promise<void> {
                 ),
               );
               validate(settings);
-              return settings;
             })
-            .then(( settings: { [key: string]: any }) => {
+            .then(() => {
               let val = settings[args[0]];
               val.value = args[1];
               settings[args[0]] = val;
-              return settings;
-            })
-            .then(( settings: { [key: string]: any } ) => {
               validate(settings);
-              Object.assign(settingsCache.settings, settings);
+            })
+            .then(() => {
               // write to PouchDB
               return db.upsert('settings', (doc: any) => ({ ...doc, ...settings }));
             })
             .then(() => {
+              // update in-memory cache
+              Object.assign(settingsCache.settings, settings);
+
               console.log("Settings saved to PouchDB.");
               resolve();
             })
-            .catch(reject);
+            .catch((err) => {
+              console.log("Failed to save settings to PouchDB.", err)
+              reject(err);
+            })
         } else {
           reject(new Error("No value passed to set()."));
         }

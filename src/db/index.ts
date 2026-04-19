@@ -30,39 +30,30 @@ export async function setMeta(fields: Record<string, any>): Promise<void> {
 // encryption
 //
 
+import { generateMasterKey as _generateMasterKey, importMasterKey as _importMasterKey, deriveEncryptionKey } from './crypto';
+
 let _masterKey: CryptoKey | null = null;
+let _encryptionKey: CryptoKey | null = null;
 
 // generate a new masterKey and store in chrome.storage.local
 // called from migration_20260404 (existing users) and the setup wizard (new users)
 export async function generateMasterKey(): Promise<void> {
-  const masterKey = await crypto.subtle.generateKey(
-    { name: 'HMAC', hash: 'SHA-256', length: 256 },
-    true,
-    ['sign'],
-  );
-  const raw = await crypto.subtle.exportKey('raw', masterKey);
-  await chrome.storage.local.set({ masterKey: Array.from(new Uint8Array(raw)) });
-  _masterKey = masterKey;
-  console.log('db.generateMasterKey(): masterKey generated and stored.');
+  _masterKey = await _generateMasterKey();
+  _encryptionKey = await deriveEncryptionKey(_masterKey);
 }
 
 // import a masterKey from a hex string (used during join existing sync setup)
 export async function importMasterKey(hex: string): Promise<void> {
-  const bytes = new Uint8Array(hex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-  const masterKey = await crypto.subtle.importKey(
-    'raw',
-    bytes,
-    { name: 'HMAC', hash: 'SHA-256', length: 256 },
-    true,
-    ['sign'],
-  );
-  await chrome.storage.local.set({ masterKey: Array.from(bytes) });
-  _masterKey = masterKey;
-  console.log('db.importMasterKey(): masterKey imported and stored.');
+  _masterKey = await _importMasterKey(hex);
+  _encryptionKey = await deriveEncryptionKey(_masterKey);
 }
 
 export function getMasterKey(): CryptoKey | null {
   return _masterKey;
+}
+
+export function getEncryptionKey(): CryptoKey | null {
+  return _encryptionKey;
 }
 
 // retrieve _masterKey on service worker startup
@@ -74,6 +65,7 @@ export async function init(): Promise<void> {
     console.log('db.init(): no masterKey found — setup required.');
     return;
   }
+
   _masterKey = await crypto.subtle.importKey(
     'raw',
     new Uint8Array(Object.values(raw as Record<string, number>)),
@@ -81,6 +73,9 @@ export async function init(): Promise<void> {
     true,
     ['sign'],
   );
+
+  _encryptionKey = await deriveEncryptionKey(_masterKey);
+
   console.log('db.init(): masterKey loaded.');
 }
 
@@ -102,4 +97,4 @@ export async function bookmarkId(href: string): Promise<string> {
   return sha256Id(href); // fallback before init() completes
 }
 
-export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, init, ready, bookmarkId };
+export default { getMeta, setMeta, generateMasterKey, importMasterKey, getMasterKey, getEncryptionKey, init, ready, bookmarkId };

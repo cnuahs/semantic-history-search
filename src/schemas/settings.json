@@ -447,6 +447,36 @@
         "secure",
         "hidden"
       ]
+    },
+    "sync-interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "default": "Sync Interval (minutes)"
+        },
+        "description": {
+          "type": "string",
+          "default": "How often to sync with the remote sync server (1-60 minutes)."
+        },
+        "value": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 60,
+          "default": 5
+        },
+        "secure": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "label",
+        "description",
+        "value",
+        "secure"
+      ]
     }
   }
 }

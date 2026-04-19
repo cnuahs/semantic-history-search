@@ -1,23 +1,31 @@
-// Sync settings — master key display and CouchDB URL management
+// Sync settings — master key display, CouchDB URL management, and sync status
 
 // 2026-04-04 - Shaun L. Cloherty <s.cloherty@ieee.org>
 
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { DatePipe } from '@angular/common';
+
 import { SearchService } from '../search.service';
 
 @Component({
   selector: 'app-sync',
-  imports: [FormsModule, ReactiveFormsModule],
+  imports: [FormsModule, ReactiveFormsModule, DatePipe],
   templateUrl: './sync.component.html',
 })
-export class SyncComponent implements OnInit {
+export class SyncComponent implements OnInit, OnDestroy {
   masterKeyHex: string = '';
   copied: boolean = false;
 
   form: FormGroup;
 
   savedMessage: string = '';
+
+  syncState: string = '';
+  syncError: string = '';
+  lastSynced: number | null = null;
+
+  private _statusPollInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private searchService: SearchService,
@@ -35,6 +43,40 @@ export class SyncComponent implements OnInit {
     }).catch((err) => {
       console.error('SyncComponent.ngOnInit()', err);
     });
+
+    this.refreshStatus();
+
+    // poll for status updates while the component is open
+    this._statusPollInterval = setInterval(() => this.refreshStatus(), 5000);
+  }
+
+  ngOnDestroy() {
+    if (this._statusPollInterval) {
+      clearInterval(this._statusPollInterval);
+      this._statusPollInterval = null;
+    }
+  }
+
+  private refreshStatus() {
+    this.searchService.getSyncStatus().then((status) => {
+      if (!status) {
+        this.syncState = 'Not configured';
+        this.syncError = '';
+        return;
+      }
+
+      switch (status.state) {
+        case 'syncing': this.syncState = 'Syncing';       break;
+        case 'ok':      this.syncState = 'Up to date';     break;
+        case 'error':   this.syncState = 'Error';          break;
+        case 'stopped': this.syncState = 'Not configured'; break;
+      }
+
+      this.syncError = status.error ?? '';
+      this.lastSynced = status.lastSynced ?? null;
+    }).catch((err) => {
+      console.error('SyncComponent.refreshStatus()', err);
+    });
   }
 
   async onCopyKey() {
@@ -49,6 +91,7 @@ export class SyncComponent implements OnInit {
       .then(() => {
         this.savedMessage = 'Saved ✓';
         setTimeout(() => this.savedMessage = '', 2000);
+        this.refreshStatus();
       })
       .catch((err) => console.error('SyncComponent.onSubmit()', err));
   }
