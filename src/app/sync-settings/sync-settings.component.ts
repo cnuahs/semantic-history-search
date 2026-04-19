@@ -11,11 +11,11 @@ import { SettingsService, Setting } from '../settings.service';
 import { SettingsListComponent } from '../settings-list/settings-list.component';
 
 @Component({
-  selector: 'app-sync',
+  selector: 'app-sync-settings',
   imports: [FormsModule, ReactiveFormsModule, DatePipe, SettingsListComponent],
-  templateUrl: './sync.component.html',
+  templateUrl: './sync-settings.component.html',
 })
-export class SyncComponent implements OnInit, OnDestroy {
+export class SyncSettingsComponent implements OnInit, OnDestroy {
   masterKeyHex: string = '';
   copied: boolean = false;
 
@@ -46,7 +46,7 @@ export class SyncComponent implements OnInit, OnDestroy {
       this.masterKeyHex = this.formatHex(masterKeyHex);
       this.form.patchValue({ couchdbUrl });
     }).catch((err) => {
-      console.error('SyncComponent.ngOnInit() master key', err);
+      console.error('SyncSettingsComponent.ngOnInit() master key', err);
     });
 
     this.settingsService
@@ -58,7 +58,7 @@ export class SyncComponent implements OnInit, OnDestroy {
         });
       })
       .catch((err) => {
-        console.error('SyncComponent.ngOnInit() settings', err);
+        console.error('SyncSettingsComponent.ngOnInit() settings', err);
       });
 
     this.refreshStatus();
@@ -92,7 +92,7 @@ export class SyncComponent implements OnInit, OnDestroy {
       this.syncError = status.error ?? '';
       this.lastSynced = status.lastSynced ?? null;
     }).catch((err) => {
-      console.error('SyncComponent.refreshStatus()', err);
+      console.error('SyncSettingsComponent.refreshStatus()', err);
     });
   }
 
@@ -121,7 +121,7 @@ export class SyncComponent implements OnInit, OnDestroy {
         setTimeout(() => this.savedMessage = '', 2000);
         this.refreshStatus();
       })
-      .catch((err) => console.error('SyncComponent.onSubmit()', err));
+      .catch((err) => console.error('SyncSettingsComponent.onSubmit()', err));
   }
 
   onCancel() {

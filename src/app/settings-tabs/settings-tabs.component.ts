@@ -6,14 +6,14 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { GeneralSettingsComponent } from '../general-settings/general-settings.component';
-import { SyncComponent } from '../sync/sync.component';
+import { SyncSettingsComponent } from '../sync-settings/sync-settings.component';
 import { ActionsComponent } from '../actions/actions.component';
 
 type SettingsTab = 'general' | 'sync' | 'actions';
 
 @Component({
   selector: 'app-settings-tabs',
-  imports: [RouterLink, GeneralSettingsComponent, SyncComponent, ActionsComponent],
+  imports: [RouterLink, GeneralSettingsComponent, SyncSettingsComponent, ActionsComponent],
   templateUrl: './settings-tabs.component.html',
 })
 export class SettingsTabsComponent {
