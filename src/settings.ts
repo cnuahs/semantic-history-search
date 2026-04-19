@@ -7,7 +7,7 @@ export type SettingValue = {
   description: string;
   value: string | string[] | number;
   secure: boolean;
-  hidden: boolean;
+  category?: string;
 };
 
 export type Setting = SettingValue & {
