@@ -2,10 +2,10 @@
 
   <div class="min-w-full px-2 py-2 bg-slate-100 flex flex-col grow">
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <ul>
+      <div>
 
   <!-- master key -->
-  <li class="flex flex-col my-2">
+  <div class="flex flex-col my-2">
     <span class="font-medium">Master key</span>
     <div class="h-5 mb-1 text-gray-500">
       <span class="font-light text-sm">
@@ -24,10 +24,10 @@
         {{ copied ? 'Copied!' : 'Copy to clipboard' }}
       </button>
     </div>
-  </li>
+  </div>
 
   <!-- CouchDB URL -->
-  <li class="flex flex-col my-2">
+  <div class="flex flex-col my-2">
     <span class="font-medium">Sync URL</span>
     <div class="h-5 mb-1 text-gray-500">
       @if (form.get('couchdbUrl')?.invalid && form.get('couchdbUrl')?.dirty) {
@@ -72,27 +72,12 @@
         </div>
       </div>
     }
-  </li>
+  </div>
 
   <!-- sync settings (category: 'sync') -->
-  @for (setting of settings; track setting.name) {
-    <li class="flex flex-col my-2">
-      <span class="font-medium">{{ setting.label }}</span>
-      <div class="h-5 mb-1 text-gray-500">
-        <span class="font-light text-sm">{{ setting.description }}</span>
-      </div>
-      <input
-        class="p-2 bg-white placeholder:text-slate-300 outline-1 outline-slate-200 focus:outline-cyan-500 rounded-xs"
-        type="number"
-        autocomplete="off"
-        [formControlName]="setting.name"
-        ngDefaultControl
-        placeholder="{{ setting.label }}"
-      />
-    </li>
-  }
+  <app-settings-list [settings]="settings" [form]="form" />
 
-      </ul>
+      </div>
  
       <div class="flex flex-row gap-2 items-center place-self-end justify-end">
         @if (savedMessage) {

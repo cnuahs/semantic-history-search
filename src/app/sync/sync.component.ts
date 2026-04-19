@@ -8,10 +8,11 @@ import { DatePipe } from '@angular/common';
 
 import { SearchService } from '../search.service';
 import { SettingsService, Setting } from '../settings.service';
+import { SettingsListComponent } from '../settings-list/settings-list.component';
 
 @Component({
   selector: 'app-sync',
-  imports: [FormsModule, ReactiveFormsModule, DatePipe],
+  imports: [FormsModule, ReactiveFormsModule, DatePipe, SettingsListComponent],
   templateUrl: './sync.component.html',
 })
 export class SyncComponent implements OnInit, OnDestroy {
