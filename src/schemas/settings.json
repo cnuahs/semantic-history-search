@@ -23,13 +23,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "pinecone-index": {
@@ -51,13 +56,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "pinecone-namespace": {
@@ -79,13 +89,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "pinecone-api-key": {
@@ -107,13 +122,18 @@
         "secure": {
           "type": "boolean",
           "default": true
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "include-patterns": {
@@ -141,13 +161,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "exclude-patterns": {
@@ -175,13 +200,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "history-limit-days": {
@@ -203,13 +233,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "search-result-limit": {
@@ -231,13 +266,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "search-similarity-threshold": {
@@ -259,13 +299,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "search-child-limit": {
@@ -287,13 +332,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "search-top-k": {
@@ -315,13 +365,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "search-length-penalty": {
@@ -343,17 +398,23 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "general"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     },
     "indexed-half-life": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "label": {
           "type": "string",
@@ -370,22 +431,18 @@
         "secure": {
           "type": "boolean",
           "default": false
-        },
-        "hidden": {
-          "type": "boolean",
-          "default": true
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure",
-        "hidden"
+        "secure"
       ]
     },
     "unindexed-half-life": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "label": {
           "type": "string",
@@ -402,22 +459,18 @@
         "secure": {
           "type": "boolean",
           "default": false
-        },
-        "hidden": {
-          "type": "boolean",
-          "default": true
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure",
-        "hidden"
+        "secure"
       ]
     },
     "purge-threshold": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "label": {
           "type": "string",
@@ -434,18 +487,13 @@
         "secure": {
           "type": "boolean",
           "default": false
-        },
-        "hidden": {
-          "type": "boolean",
-          "default": true
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure",
-        "hidden"
+        "secure"
       ]
     },
     "sync-interval": {
@@ -469,13 +517,18 @@
         "secure": {
           "type": "boolean",
           "default": false
+        },
+        "category": {
+          "type": "string",
+          "default": "sync"
         }
       },
       "required": [
         "label",
         "description",
         "value",
-        "secure"
+        "secure",
+        "category"
       ]
     }
   }
