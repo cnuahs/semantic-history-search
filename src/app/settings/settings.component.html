@@ -7,7 +7,7 @@
         <ul>
           <!-- @for (setting of settings; track setting.label) { -->
           @for (setting of settings; track setting.label) {
-            @if (!setting.hidden) {
+            @if (setting.category === 'general') {
             <li class="flex flex-col my-2">
               <span class="font-medium">{{ setting.label }}</span>
               @if (isArray(setting.value)) {
