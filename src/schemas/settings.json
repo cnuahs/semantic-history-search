@@ -236,7 +236,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [
@@ -269,7 +269,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [
@@ -302,7 +302,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [
@@ -335,7 +335,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [
@@ -368,7 +368,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [
@@ -401,7 +401,7 @@
         },
         "category": {
           "type": "string",
-          "default": "general"
+          "default": "search"
         }
       },
       "required": [

@@ -12,12 +12,12 @@ import { SettingsService, Setting } from "../settings.service";
 import { SettingsListComponent } from "../settings-list/settings-list.component";
 
 @Component({
-  selector: "app-settings",
+  selector: "app-general-settings",
   imports: [FormsModule, ReactiveFormsModule, SettingsListComponent],
-  templateUrl: "./settings.component.html",
-  styleUrl: "./settings.component.css",
+  templateUrl: "./general-settings.component.html",
+  styleUrl: "./general-settings.component.css",
 })
-export class SettingsComponent implements OnInit {
+export class GeneralSettingsComponent implements OnInit {
   settings: Setting[] | null = null;
 
   form: FormGroup;
@@ -29,13 +29,13 @@ export class SettingsComponent implements OnInit {
     private formBuilder: FormBuilder,
   ) {
     // injects SettingsService as this.settingsService and FormBuilder as this.formBuilder
-    console.log("SettingsComponent.constructor()");
+    console.log("GeneralSettingsComponent.constructor()");
 
     this.form = this.formBuilder.group({}); // empty form group
   }
 
   ngOnInit() {
-    console.log("SettingsComponent.ngOnInit()");
+    console.log("GeneralSettingsComponent.ngOnInit()");
     this.settingsService
       .get()
       .then((settings: Setting[]) => {
@@ -60,12 +60,12 @@ export class SettingsComponent implements OnInit {
       })
       .catch((error) => {
         this.settings = null;
-        console.error("SettingsComponent.ngOnInit()", error);
+        console.error("GeneralSettingsComponent.ngOnInit()", error);
       });
   }
 
   onSubmit() {
-    console.log("SettingsComponent.onSubmit()");
+    console.log("GeneralSettingsComponent.onSubmit()");
 
     Object.entries(this.form.value).forEach(([key, value]) => {
       const setting = this.settings?.find((setting) => setting.name === key);
@@ -81,11 +81,12 @@ export class SettingsComponent implements OnInit {
         this.savedMessage = 'Saved ✓';
         setTimeout(() => this.savedMessage = '', 2000);
       })
-      .catch((err) => console.error('SettingsComponent.onSubmit()', err));
+      .catch((err) => console.error('GeneralSettingsComponent.onSubmit()', err));
   }
 
   onCancel() {
     // revert form to last saved state by re-fetching settings
+    this.form = this.formBuilder.group({});
     this.ngOnInit();
   }
 }

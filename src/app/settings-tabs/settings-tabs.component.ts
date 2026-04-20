@@ -5,15 +5,17 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { SettingsComponent } from '../settings/settings.component';
-import { SyncComponent } from '../sync/sync.component';
+import { GeneralSettingsComponent } from '../general-settings/general-settings.component';
+import { SearchSettingsComponent } from '../search-settings/search-settings.component';
+import { SyncSettingsComponent } from '../sync-settings/sync-settings.component';
+
 import { ActionsComponent } from '../actions/actions.component';
 
-type SettingsTab = 'general' | 'sync' | 'actions';
+type SettingsTab = 'general' | 'sync' | 'search' | 'actions';
 
 @Component({
   selector: 'app-settings-tabs',
-  imports: [RouterLink, SettingsComponent, SyncComponent, ActionsComponent],
+  imports: [RouterLink, GeneralSettingsComponent, SearchSettingsComponent, SyncSettingsComponent, ActionsComponent],
   templateUrl: './settings-tabs.component.html',
 })
 export class SettingsTabsComponent {
