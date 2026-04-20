@@ -454,13 +454,11 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         try {
           await db.init();
 
-          // start sync if a sync URL is configured (e.g. after setup-join)
-          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
-          if (couchdbUrl) {
-            const encryptionKey = db.getEncryptionKey();
-            if (encryptionKey) {
-              await sync.startSync(encryptionKey, couchdbUrl as string);
-            }
+          // start sync if configured and enabled (e.g. after setup-join)
+          const { couchdbUrl, syncEnabled } = await chrome.storage.local.get(['couchdbUrl', 'syncEnabled']);
+          const encryptionKey = db.getEncryptionKey();
+          if (syncEnabled && couchdbUrl && encryptionKey) {
+            await sync.startSync(encryptionKey, couchdbUrl as string);
           }
 
           await retriever.reinit();
@@ -476,12 +474,12 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
     case "get-sync-info": {
       (async () => {
         try {
-          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+          const { couchdbUrl, syncEnabled } = await chrome.storage.local.get(['couchdbUrl', 'syncEnabled']);
           const raw = await crypto.subtle.exportKey('raw', db.getMasterKey()!);
           const hex = Array.from(new Uint8Array(raw))
             .map(b => b.toString(16).padStart(2, '0'))
             .join('');
-          sendResponse({ type: 'result', payload: { masterKeyHex: hex, couchdbUrl: couchdbUrl ?? '' } });
+          sendResponse({ type: 'result', payload: { masterKeyHex: hex, couchdbUrl: couchdbUrl ?? '', syncEnabled: syncEnabled ?? false } });
         } catch (err) {
           sendResponse({ type: 'error', payload: err as Error });
         }
@@ -496,10 +494,11 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
           const couchdbUrl = message.payload as string;
           await chrome.storage.local.set({ couchdbUrl });
 
-          if (couchdbUrl) {
-            const encryptionKey = db.getEncryptionKey();
-            if (!encryptionKey) throw new Error('Encryption key not available.');
-            await sync.startSync(encryptionKey, couchdbUrl);
+          const { syncEnabled } = await chrome.storage.local.get('syncEnabled');
+          const encryptionKey = db.getEncryptionKey();
+
+          if (syncEnabled && couchdbUrl && encryptionKey) {
+            await sync.startSync(encryptionKey, couchdbUrl as string);
           } else {
             await sync.stopSync();
           }
@@ -511,6 +510,30 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       })();
 
       return true;
+
+    case "set-sync-enabled": {
+      (async () => {
+        try {
+          const syncEnabled = message.payload as boolean;
+          await chrome.storage.local.set({ syncEnabled });
+
+          const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
+          const encryptionKey = db.getEncryptionKey();
+
+          if (syncEnabled && couchdbUrl && encryptionKey) {
+            await sync.startSync(encryptionKey, couchdbUrl as string);
+          } else {
+            await sync.stopSync();
+          }
+
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+
+      return true;
+    }
 
     case "get-sync-status": {
       (async () => {
@@ -600,13 +623,10 @@ retriever.waitForInit().then(async (ready) => {
 
   maintenance.init();
 
-  const { couchdbUrl } = await chrome.storage.local.get('couchdbUrl');
-  if (couchdbUrl) {
+  const { couchdbUrl, syncEnabled } = await chrome.storage.local.get(['couchdbUrl', 'syncEnabled']);
+  if (syncEnabled && couchdbUrl) {
     const encryptionKey = db.getEncryptionKey();
     if (encryptionKey) {
-      const intervalSetting = await settings.get('sync-interval');
-      const intervalMinutes = Number(Array.isArray(intervalSetting) ? intervalSetting[0]?.value : intervalSetting?.value) || 5;
-
       await sync.startSync(encryptionKey, couchdbUrl as string);
     } else {
       console.warn('background: CouchDB URL configured but encryption key not available — sync not started.');
