@@ -26,6 +26,36 @@
     </div>
   </div>
 
+  <!-- enable/disable sync toggle -->
+  <div class="flex flex-col my-2">
+    <div class="flex flex-row items-center gap-2">
+      <span class="font-medium grow">Enable sync</span>
+      <button
+        type="button"
+        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+        [class.bg-cyan-500]="form.get('syncEnabled')?.value && isConfigured"
+        [class.bg-slate-300]="!form.get('syncEnabled')?.value || !isConfigured"
+        [disabled]="!isConfigured"
+        (click)="form.get('syncEnabled')?.setValue(!form.get('syncEnabled')?.value)"
+      >
+        <span
+          class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
+          [class.translate-x-5]="form.get('syncEnabled')?.value && isConfigured"
+          [class.translate-x-1]="!form.get('syncEnabled')?.value || !isConfigured"
+        ></span>
+      </button>
+    </div>
+    <div class="h-5 mt-1 text-gray-500">
+      <span class="font-light text-sm">
+        @if (!isConfigured) {
+          Enter a sync server URL below to enable sync.
+        } @else {
+          Sync is {{ form.get('syncEnabled')?.value ? 'enabled' : 'disabled' }}.
+        }
+      </span>
+    </div>
+  </div>
+
   <!-- CouchDB URL -->
   <div class="flex flex-col my-2">
     <span class="font-medium">Sync URL</span>
@@ -52,7 +82,7 @@
     <!-- </div> -->
 
     <!-- sync status -->
-    @if (form.get('couchdbUrl')?.value) {
+    @if (form.get('couchdbUrl')?.value && form.get('syncEnabled')?.value) {
       <div class="my-2 flex flex-col gap-1 font-light text-xs italic">
         <div class="flex flex-row gap-2">
           <span class="text-gray-500">Status:</span>
