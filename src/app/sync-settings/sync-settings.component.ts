@@ -38,15 +38,22 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
   ) {
     this.form = this.formBuilder.group({
       couchdbUrl: ['', [Validators.pattern(/^(https?:\/\/.+)?$/)]],
+      syncEnabled: [false],
     });
   }
 
+  // returns true if sync is configured (i.e. has a valid CouchDB URL)
+  get isConfigured(): boolean {
+    const url = this.form.get('couchdbUrl')?.value ?? '';
+    return this.form.get('couchdbUrl')?.valid === true && url.length > 0;
+  }
+
   ngOnInit() {
-    this.searchService.getSyncInfo().then(({ masterKeyHex, couchdbUrl }) => {
+    this.searchService.getSyncInfo().then(({ masterKeyHex, couchdbUrl, syncEnabled }) => {
       this.masterKeyHex = this.formatHex(masterKeyHex);
-      this.form.patchValue({ couchdbUrl });
+      this.form.patchValue({ couchdbUrl, syncEnabled });
     }).catch((err) => {
-      console.error('SyncSettingsComponent.ngOnInit() master key', err);
+      console.error('SyncSettingsComponent.ngOnInit() configuration', err);
     });
 
     this.settingsService
@@ -115,6 +122,7 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
     Promise.all([
       this.settingsService.set(settings),
       this.searchService.setCouchdbUrl(this.form.value.couchdbUrl ?? ''),
+      this.searchService.setSyncEnabled(this.form.value.syncEnabled ?? false),
     ])
       .then(() => {
         this.savedMessage = 'Saved ✓';
@@ -125,8 +133,8 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
   }
 
   onCancel() {
-    this.searchService.getSyncInfo().then(({ couchdbUrl }) => {
-      this.form.patchValue({ couchdbUrl });
+    this.searchService.getSyncInfo().then(({ couchdbUrl, syncEnabled }) => {
+      this.form.patchValue({ couchdbUrl, syncEnabled });
     });
 
     this.settingsService.get()

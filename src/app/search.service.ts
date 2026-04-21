@@ -198,12 +198,12 @@ export class SearchService {
     });
   }
 
-  async getSyncInfo(): Promise<{ masterKeyHex: string, couchdbUrl: string }> {
+  async getSyncInfo(): Promise<{ masterKeyHex: string, couchdbUrl: string, syncEnabled: boolean }> {
     return chrome.runtime.sendMessage({ type: 'get-sync-info' }).then((response) => {
       if (!response || response.type !== 'result') {
-        return { masterKeyHex: '', couchdbUrl: '' };
+        return { masterKeyHex: '', couchdbUrl: '', syncEnabled: false };
       }
-      return response.payload as { masterKeyHex: string, couchdbUrl: string };
+      return response.payload as { masterKeyHex: string, couchdbUrl: string, syncEnabled: boolean };
     });
   }
 
@@ -214,6 +214,17 @@ export class SearchService {
     }).then((response) => {
       if (!response || response.type !== 'result') {
         throw new Error('Failed to save CouchDB URL.');
+      }
+    });
+  }
+
+  async setSyncEnabled(enabled: boolean): Promise<void> {
+    return chrome.runtime.sendMessage({
+      type: 'set-sync-enabled',
+      payload: enabled,
+    }).then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Failed to save sync enabled state.');
       }
     });
   }
