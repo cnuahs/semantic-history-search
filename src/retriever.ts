@@ -685,32 +685,6 @@ settings.get().then((_settings) => {
     });
 });
 
-// listen for changes to settings that affect the retriever
-settings.addListener(
-  [
-    "embedding-model",
-    "pinecone-index",
-    "pinecone-namespace",
-    "pinecone-api-key",
-    "search-result-limit",
-    "search-similarity-threshold",
-    "search-child-limit",
-    "search-top-k",
-    "search-length-penalty",
-  ],
-  (changes) => {
-    setup(changes.newValue)
-      .then((_retriever) => {
-        console.log("Retriever initialised.");
-        retriever = _retriever;
-      })
-      .catch((err) => {
-        console.error("Retriever initialisation failed:", err);
-        retriever = null;
-      });
-  },
-);
-
 // reinitialise the retriever, e.g., after setup
 export async function reinit(): Promise<void> {
   const _settings = await settings.get();
@@ -731,6 +705,22 @@ export async function reinit(): Promise<void> {
       });
   });
 }
+
+// listen for changes to settings that affect the retriever
+settings.addListener(
+  [
+    "embedding-model",
+    "pinecone-index",
+    "pinecone-namespace",
+    "pinecone-api-key",
+    "search-result-limit",
+    "search-similarity-threshold",
+    "search-child-limit",
+    "search-top-k",
+    "search-length-penalty",
+  ],
+  () => reinit(),
+);
 
 // delete vectors from vStore
 async function deleteVectors(id: string): Promise<void> {
