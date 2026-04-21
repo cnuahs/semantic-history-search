@@ -555,6 +555,30 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
       return true;
     }
 
+    case "get-settings": {
+      (async () => {
+        try {
+          const result = await settings.get(message.payload);
+          sendResponse({ type: 'result', payload: result });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+      return true;
+    }
+    
+    case "set-settings": {
+      (async () => {
+        try {
+          await settings.set(message.payload);
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+      return true;
+    }
+
     default:
       console.warn("Unknown message type:", message.type);
 
