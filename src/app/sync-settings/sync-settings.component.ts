@@ -58,7 +58,9 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
 
     this.settingsService
       .get()
-      .then((settings: Setting[]) => {
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
+
         this.settings = settings.filter(s => s.category === 'sync');
         this.settings.forEach(setting => {
           this.form.addControl(setting.name, this.formBuilder.control(setting.value));
@@ -72,6 +74,8 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
 
     // poll for status updates while the component is open
     this._statusPollInterval = setInterval(() => this.refreshStatus(), 5000);
+
+    console.log('form valid:', this.form.valid, 'form errors:', JSON.stringify(this.form.errors), 'control errors:', JSON.stringify(Object.fromEntries(Object.entries(this.form.controls).map(([k,v]) => [k, v.errors]))))
   }
 
   ngOnDestroy() {
@@ -110,7 +114,10 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
   }
 
   onSubmit() {
+    console.log('onSubmit this.settings:', this.settings)
+    console.log('onSubmit form valid:', this.form.valid, 'form value:', this.form.value)
     if (!this.form.valid) return;
+    console.log('onSubmit settings:', this.settings);
 
     const settings = this.settings.map(setting => ({
       ...setting,
@@ -118,6 +125,7 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
         ? Number(this.form.value[setting.name])
         : this.form.value[setting.name],
     }));
+    console.log('onSubmit settings (after spread and cast):', settings);
 
     Promise.all([
       this.settingsService.set(settings),
@@ -138,7 +146,8 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
     });
 
     this.settingsService.get()
-      .then((settings: Setting[]) => {
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
         settings.filter(s => s.category === 'sync').forEach(setting => {
           this.form.patchValue({ [setting.name]: setting.value });
         });

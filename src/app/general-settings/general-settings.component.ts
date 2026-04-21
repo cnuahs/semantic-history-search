@@ -38,7 +38,9 @@ export class GeneralSettingsComponent implements OnInit {
     console.log("GeneralSettingsComponent.ngOnInit()");
     this.settingsService
       .get()
-      .then((settings: Setting[]) => {
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
+
         this.settings = settings.filter(s => s.category === 'general');
 
         // create form controls
