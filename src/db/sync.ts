@@ -137,18 +137,6 @@ export async function run(): Promise<void> {
     console.error('sync.run(): sync failed:', error);
     notify({ state: 'error', error, lastSynced: _status.lastSynced });
   }
-
-  // re-read sync interval (in case it has changed) and reset the alarm
-  const syncInterval = await getSyncInterval();
-  const alarm = await chrome.alarms.get(ALARM_NAME);
-  if (alarm && alarm.periodInMinutes !== syncInterval) {
-    console.log(`sync.run(): sync interval changed to ${syncInterval} minutes — resetting alarm.`);
-    await chrome.alarms.clear(ALARM_NAME);
-    chrome.alarms.create(ALARM_NAME, {
-      delayInMinutes: syncInterval,
-      periodInMinutes: syncInterval,
-    });
-  }
 }
 
 export default { startSync, stopSync, run, getStatus, addStatusListener };
