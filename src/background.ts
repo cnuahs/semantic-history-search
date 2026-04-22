@@ -56,35 +56,24 @@ settings
 
         // listen for changes to settings that affect the content script
         return settings.addListener(
-          ["include-patterns", "exclude-patterns"],
+          ['include-patterns', 'exclude-patterns'],
           (changes) => {
-            console.log("Settings changed:", changes);
-
-            const newValue = changes.newValue as Record<string, SettingValue>;
-            var includes = newValue["include-patterns"].value;
-            var excludes = newValue["exclude-patterns"].value;
-
-            includes = Array.isArray(includes)
-              ? includes.filter((pattern): pattern is string => typeof pattern === "string")
-              : typeof includes === "string"
-                ? [includes]
-                : ["http://localhost/*"];
-
-            excludes = Array.isArray(excludes)
-              ? excludes.filter((pattern): pattern is string => typeof pattern === "string")
-              : typeof excludes === "string"
-                ? [excludes]
-                : [];
-
-            // update the content script
-            updateContentScript([
-              {
-                id: "shs-content-script",
-                matches: includes, // must specify atleast one match pattern
-                excludeMatches: excludes,
-                css: [],
-              },
-            ]);
+            console.log("include/exclude patterns changed:", changes);
+            const newValue = changes.newValue as Record<string, any>;
+          
+            const includes = newValue['include-patterns']?.value;
+            const excludes = newValue['exclude-patterns']?.value;
+          
+            updateContentScript([{
+              id: 'shs-content-script',
+              matches: Array.isArray(includes)
+                ? includes.filter((p): p is string => typeof p === 'string')
+                : typeof includes === 'string' ? [includes] : ['http://localhost/*'],
+              excludeMatches: Array.isArray(excludes)
+                ? excludes.filter((p): p is string => typeof p === 'string')
+                : typeof excludes === 'string' ? [excludes] : [],
+              css: [],
+            }]);
           },
         );
       })
@@ -100,6 +89,20 @@ function updateContentScript(
     .then(() => console.log("Updated content script."))
     .catch((err) => console.warn("Updating content script failed:", err));
 }
+
+// listen for changes to the sync-interval setting and update the sync alarm accordingly
+settings.addListener(['sync-interval'], async () => {
+  const alarm = await chrome.alarms.get('shs-sync');
+  if (alarm) {
+    const syncInterval = Number((await settings.get('sync-interval') as any)?.value) || 5;
+    await chrome.alarms.clear('shs-sync');
+    chrome.alarms.create('shs-sync', {
+      delayInMinutes: syncInterval,
+      periodInMinutes: syncInterval,
+    });
+    console.log(`settings: sync alarm reset to ${syncInterval} minutes.`);
+  }
+});
 
 // listen for messages from the payload.js script
 chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
@@ -549,6 +552,30 @@ chrome.runtime.onMessage.addListener( function (message, sender, sendResponse) {
         }
       })();
 
+      return true;
+    }
+
+    case "get-settings": {
+      (async () => {
+        try {
+          const result = await settings.get(message.payload);
+          sendResponse({ type: 'result', payload: result });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
+      return true;
+    }
+    
+    case "set-settings": {
+      (async () => {
+        try {
+          await settings.set(message.payload);
+          sendResponse({ type: 'result', payload: null });
+        } catch (err) {
+          sendResponse({ type: 'error', payload: err instanceof Error ? err : new Error(String(err)) });
+        }
+      })();
       return true;
     }
 

@@ -196,26 +196,35 @@ db.changes({
 }).on('change', (change: any) => {
   const { data } = split(change.doc);
   const newSettings = data as typeof _defaults;
-  const oldSettings = settingsCache.settings;
+  const oldSettings = structuredClone(settingsCache.settings);
 
   settingsCache.settings = newSettings;
 
-  // notify listeners for any changed keys
-  Object.entries(newSettings).forEach(([key, obj]: [string, any]) => {
-    if (oldSettings && (oldSettings as any)[key]?.value === obj?.value) {
-      return;
-    }
-    if (callbacks[key]) {
-      callbacks[key].forEach((callback) => {
-        callback({ oldValue: oldSettings, newValue: newSettings });
-      });
-    }
-  });
+  update(oldSettings, newSettings);
 });
 
 const callbacks: {
   [key: string]: ((changes: chrome.storage.StorageChange) => void)[];
 } = {};
+
+function update(
+  oldSettings: typeof _defaults,
+  newSettings: typeof _defaults,
+): void {
+  // collect unique callbacks whose trigger keys have changed value
+  const pending = new Set<(changes: chrome.storage.StorageChange) => void>();
+
+  Object.keys(callbacks).forEach((key) => {
+    const oldVal = (oldSettings as any)[key]?.value;
+    const newVal = (newSettings as any)[key]?.value;
+    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      callbacks[key]?.forEach((cb) => pending.add(cb));
+    }
+  });
+
+  // dispatch pending callbacks with a changes object in the same format as chrome.storage.onChanged
+  pending.forEach((cb) => cb({ oldValue: oldSettings, newValue: newSettings }));
+}
 
 // public API
 export async function get(...args: any[]): Promise<Setting | Setting[]> {
@@ -305,7 +314,7 @@ export function set(...args: any[]): Promise<void> {
               validate(settings);
             })
             .then(() => {
-              let val = settings[args[0]];
+              let val = settings[args[0]]; // TODO: guard against unknown keys
               val.value = args[1];
               settings[args[0]] = val;
               validate(settings);
@@ -316,9 +325,13 @@ export function set(...args: any[]): Promise<void> {
             })
             .then(() => {
               // update in-memory cache
+              const oldSettings = structuredClone(settingsCache.settings);
+
               Object.assign(settingsCache.settings, settings);
+              // settingsCache.settings = settings as typeof _defaults;
 
               console.log("Settings saved to PouchDB.");
+              update(oldSettings, settingsCache.settings); // trigger change listeners for any changed keys
               resolve();
             })
             .catch((err) => {

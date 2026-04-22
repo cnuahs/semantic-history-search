@@ -58,7 +58,9 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
 
     this.settingsService
       .get()
-      .then((settings: Setting[]) => {
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
+
         this.settings = settings.filter(s => s.category === 'sync');
         this.settings.forEach(setting => {
           this.form.addControl(setting.name, this.formBuilder.control(setting.value));
@@ -138,7 +140,8 @@ export class SyncSettingsComponent implements OnInit, OnDestroy {
     });
 
     this.settingsService.get()
-      .then((settings: Setting[]) => {
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
         settings.filter(s => s.category === 'sync').forEach(setting => {
           this.form.patchValue({ [setting.name]: setting.value });
         });

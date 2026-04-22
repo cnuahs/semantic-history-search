@@ -4,10 +4,8 @@
 
 import { Injectable } from "@angular/core";
 
-import _settings from "../settings";
-
-import { Setting } from "../settings";
-export type { Setting } from "../settings";
+import type { Setting, SettingValue } from "../settings";
+export type { Setting, SettingValue };
 
 @Injectable({
   providedIn: "root",
@@ -15,13 +13,22 @@ export type { Setting } from "../settings";
 export class SettingsService {
   constructor() {}
 
-  get(name?: string): Promise<Setting[]> {
-    return name
-      ? (_settings.get(name) as Promise<Setting[]>)
-      : (_settings.get() as Promise<Setting[]>);
-  }
+  get(name?: string): Promise<Setting | Setting[]> {
+  return chrome.runtime.sendMessage({ type: 'get-settings', payload: name })
+    .then((response) => {
+      if (!response || response.type !== 'result') {
+        throw new Error('Failed to get settings.');
+      }
+      return response.payload as Setting | Setting[];
+    });
+}
 
   set(settings: Setting[]): Promise<void> {
-    return _settings.set(settings);
+    return chrome.runtime.sendMessage({ type: 'set-settings', payload: settings })
+      .then((response) => {
+        if (!response || response.type !== 'result') {
+          throw new Error('Failed to save settings.');
+        }
+      });
   }
 }

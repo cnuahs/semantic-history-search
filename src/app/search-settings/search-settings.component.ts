@@ -35,28 +35,32 @@ export class SearchSettingsComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.settingsService.get().then((settings: Setting[]) => {
-      this.settings = settings.filter(s => s.category === 'search');
+    this.settingsService
+      .get()
+      .then((settings) => {
+        if (!Array.isArray(settings)) return;
 
-      this.settings.forEach(setting => {
-        if (Array.isArray(setting.value)) {
-          this.form.addControl(
-            setting.name,
-            this.formBuilder.array(
-              setting.value.map(value => this.formBuilder.control(value)),
-            ),
-          );
-        } else {
-          this.form.addControl(
-            setting.name,
-            this.formBuilder.control(setting.value),
-          );
-        }
+        this.settings = settings.filter(s => s.category === 'search');
+
+        this.settings.forEach(setting => {
+          if (Array.isArray(setting.value)) {
+            this.form.addControl(
+              setting.name,
+              this.formBuilder.array(
+                setting.value.map(value => this.formBuilder.control(value)),
+              ),
+            );
+          } else {
+            this.form.addControl(
+              setting.name,
+              this.formBuilder.control(setting.value),
+            );
+          }
+        });
+      }).catch((err) => {
+        this.settings = null;
+        console.error('SearchSettingsComponent.ngOnInit()', err);
       });
-    }).catch((err) => {
-      this.settings = null;
-      console.error('SearchSettingsComponent.ngOnInit()', err);
-    });
   }
 
   onSubmit() {
