@@ -72,7 +72,14 @@ export async function startSync(
 ): Promise<void> {
   // drop any existing instances
   if (_remoteDb) {
-    await _remoteDb.close();
+    try {
+      await _remoteDb.close();
+    } catch (err) {
+      if (!(err instanceof Error) || !err.message.includes('database is closed')) {
+        throw err;
+      }
+      // ignore — connection already closed, e.g. after service worker suspension
+    }
     _remoteDb = null;
   }
 
